@@ -1,0 +1,30 @@
+// Janelas de horário dos objetivos sem horário fixo. Espelhado em web/src/lib/schedule.ts (o teste garante que não divergem).
+import type { Period } from './constants';
+
+export const PERIOD_WINDOW: Record<Period, readonly [number, number]> = { morning: [360, 720], afternoon: [720, 1080], night: [1080, 1380] };
+export const FREE_WINDOW = [360, 1380] as const; // 06:00–23:00
+
+export const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+export const toHHmm = (min: number) => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+
+export interface Windowed { period: Period | null; notBefore: string | null; notAfter: string | null; durationMin: number }
+
+/** Janela permitida = período (ou o dia todo) ∩ "depois das" ∩ "antes das". Vazia quando não cabe a duração. */
+export function windowFor(a: Windowed): [number, number] | null {
+  const [pStart, pEnd] = a.period ? PERIOD_WINDOW[a.period] : FREE_WINDOW;
+  const start = Math.max(pStart, a.notBefore ? toMin(a.notBefore) : 0);
+  const end = Math.min(pEnd, a.notAfter ? toMin(a.notAfter) : 1440);
+  return end - start >= Math.min(a.durationMin, 5) && end > start ? [start, end] : null;
+}
+
+/** Lê o JSON da IA e confere se o início cabe na janela. Devolve null se a resposta não presta. */
+export function parseSuggestion(text: string, window: [number, number], durationMin: number): { start: string; reason: string } | null {
+  const raw = /\{[\s\S]*\}/.exec(text)?.[0];
+  if (!raw) return null;
+  let j: any;
+  try { j = JSON.parse(raw); } catch { return null; }
+  if (typeof j?.start !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d$/.test(j.start)) return null;
+  const s = toMin(j.start);
+  if (s < window[0] || s + Math.min(durationMin, window[1] - window[0]) > window[1]) return null;
+  return { start: j.start, reason: String(j.reason ?? '').replace(/\s+/g, ' ').trim().slice(0, 200) };
+}

@@ -1,0 +1,15 @@
+export const DEFAULT_CATEGORIES: { name: string; color: string; kind: 'expense' | 'income'; children?: string[] }[] = [
+  { name: 'Alimentação', color: '#F2B84B', kind: 'expense', children: ['Mercado', 'Restaurantes', 'Delivery'] },
+  { name: 'Transporte', color: '#5B8CFF', kind: 'expense', children: ['Combustível', 'Transporte público', 'Aplicativos'] },
+  { name: 'Moradia', color: '#34C38F', kind: 'expense', children: ['Aluguel e financiamento', 'Contas da casa', 'Manutenção'] },
+  { name: 'Saúde', color: '#E5657A', kind: 'expense', children: ['Farmácia', 'Consultas e exames'] },
+  { name: 'Lazer', color: '#A78BFA', kind: 'expense', children: ['Passeios', 'Viagens'] },
+  { name: 'Educação', color: '#22B8CF', kind: 'expense' },
+  { name: 'Assinaturas', color: '#F08C5A', kind: 'expense' },
+  { name: 'Compras', color: '#7C6CF0', kind: 'expense' },
+  { name: 'Impostos e taxas', color: '#8C94AD', kind: 'expense' },
+  { name: 'Outros', color: '#6B7391', kind: 'expense' },
+  { name: 'Salário', color: '#34C38F', kind: 'income' },
+  { name: 'Rendimentos', color: '#22B8CF', kind: 'income' },
+  { name: 'Outras receitas', color: '#5B8CFF', kind: 'income' },
+];

@@ -1,0 +1,37 @@
+/**
+ * Marca do Ninshiki (認識 = reconhecer, perceber): uma espiral aberta (ensō) feita dos três níveis do método —
+ * âmbar (mínimo), verde (ideal) e azul (máximo) — envolvendo uma íris, a atenção que percebe.
+ * O desenho vem de web/public/logo.svg; com `animate`, os arcos se desenham ao aparecer.
+ */
+export function Logo({ size = 40, tile = true, animate = false, className = '' }: { size?: number; tile?: boolean; animate?: boolean; className?: string }) {
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} className={`logo${animate ? ' animate' : ''} ${className}`} role="img" aria-label="Ninshiki">
+      <defs>
+        <linearGradient id="nk-bg" x1="6" y1="4" x2="58" y2="62" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#232846" /><stop offset="1" stopColor="#0a0c15" /></linearGradient>
+        <linearGradient id="nk-rim" x1="4" y1="4" x2="60" y2="60" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#8a7bff" stopOpacity=".85" /><stop offset=".55" stopColor="#5b8cff" stopOpacity=".25" /><stop offset="1" stopColor="#34c38f" stopOpacity=".45" /></linearGradient>
+        <radialGradient id="nk-glow" cx="22" cy="14" r="34" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#7c6cf0" stopOpacity=".38" /><stop offset="1" stopColor="#7c6cf0" stopOpacity="0" /></radialGradient>
+        <linearGradient id="nk-amber" x1="16" y1="42" x2="30" y2="14" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#ffcf70" /><stop offset="1" stopColor="#f2a93b" /></linearGradient>
+        <linearGradient id="nk-green" x1="26" y1="12" x2="52" y2="30" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#4fe0a8" /><stop offset="1" stopColor="#2fb583" /></linearGradient>
+        <linearGradient id="nk-blue" x1="52" y1="28" x2="38" y2="52" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#78b4ff" /><stop offset="1" stopColor="#4a86f5" /></linearGradient>
+        <radialGradient id="nk-iris" cx="29.6" cy="29.4" r="8" gradientUnits="userSpaceOnUse"><stop offset="0" stopColor="#c3b9ff" /><stop offset=".55" stopColor="#8b7bff" /><stop offset="1" stopColor="#5a48d8" /></radialGradient>
+      </defs>
+      {tile && (
+        <>
+          <rect x="1.5" y="1.5" width="61" height="61" rx="15.5" fill="url(#nk-bg)" />
+          <rect x="1.5" y="1.5" width="61" height="61" rx="15.5" fill="url(#nk-glow)" />
+          <rect x="2.1" y="2.1" width="59.8" height="59.8" rx="14.9" fill="none" stroke="url(#nk-rim)" strokeWidth="1.2" />
+        </>
+      )}
+      <g transform={tile ? 'translate(32 32) scale(1.14) translate(-32 -32)' : undefined}>
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4.4">
+        <path className="nk-seg nk-s1" pathLength="1" d="M22.42 28.51 L22.53 27.98 L22.67 27.45 L22.85 26.93 L23.05 26.41 L23.28 25.90 L23.54 25.39 L23.83 24.90 L24.15 24.42 L24.50 23.96 L24.87 23.51 L25.28 23.08 L25.70 22.66 L26.15 22.27 L26.63 21.90 L27.13 21.55 L27.65 21.23 L28.19 20.93 L28.75 20.66 L29.33 20.42 L29.92 20.21 L30.53 20.03 L31.15 19.88 L31.79 19.77 L32.43 19.68 L33.08 19.64 L33.74 19.62 L34.40 19.64 L35.07 19.70 L35.73 19.79 L36.40 19.92" stroke="url(#nk-amber)" />
+        <path className="nk-seg nk-s2" pathLength="1" d="M40.64 21.70 L41.23 22.10 L41.80 22.54 L42.35 23.01 L42.87 23.51 L43.37 24.04 L43.85 24.59 L44.30 25.18 L44.72 25.80 L45.11 26.44 L45.46 27.10 L45.79 27.78 L46.07 28.49 L46.33 29.22 L46.54 29.96 L46.71 30.71 L46.85 31.48 L46.95 32.26 L47.00 33.05 L47.01 33.84 L46.98 34.64 L46.91 35.44 L46.79 36.24 L46.63 37.04 L46.43 37.83 L46.19 38.62 L45.90 39.39 L45.57 40.15 L45.20 40.90 L44.79 41.63 L44.33 42.35" stroke="url(#nk-green)" />
+        <path className="nk-seg nk-s3" pathLength="1" d="M40.34 46.45 L39.62 46.95 L38.86 47.41 L38.08 47.83 L37.27 48.21 L36.43 48.55 L35.58 48.84 L34.71 49.09 L33.82 49.30 L32.92 49.46 L32.00 49.57 L31.08 49.64 L30.14 49.65 L29.21 49.62 L28.27 49.53 L27.34 49.40 L26.41 49.22 L25.48 48.98 L24.57 48.70 L23.66 48.37 L22.77 47.98 L21.90 47.55 L21.05 47.07 L20.22 46.55 L19.41 45.98 L18.64 45.36 L17.89 44.70 L17.18 44.00 L16.50 43.26 L15.85 42.49 L15.25 41.67" stroke="url(#nk-blue)" />
+      </g>
+      <circle className="nk-iris" cx="32" cy="32" r="5.6" fill="url(#nk-iris)" />
+      <circle cx="32" cy="32" r="2.25" fill="#090b13" />
+      <circle cx="30.6" cy="30.5" r="1" fill="#fff" fillOpacity=".92" />
+      </g>
+    </svg>
+  );
+}

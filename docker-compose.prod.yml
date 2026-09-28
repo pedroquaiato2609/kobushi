@@ -1,0 +1,93 @@
+# PRODUÇÃO. Uso:  docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Diferenças do docker-compose.yml (desenvolvimento): sem volumes de código, banco e API sem portas públicas
+# (só o Caddy publica 80/443), segredos obrigatórios (o compose falha se faltarem), processos sem privilégios,
+# sistema de arquivos somente leitura e HTTPS automático.
+name: ninshiki-prod
+
+x-hardening: &hardening
+  restart: unless-stopped
+  init: true
+  security_opt: ["no-new-privileges:true"]
+  logging:
+    driver: json-file
+    options: { max-size: "10m", max-file: "5" }
+
+services:
+  db:
+    <<: *hardening
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ninshiki
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD}
+      POSTGRES_DB: ninshiki
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ninshiki -d ninshiki"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    <<: *hardening
+    build: ./api
+    cap_drop: [ALL]
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgres://ninshiki:${POSTGRES_PASSWORD}@db:5432/ninshiki
+      FILES_DIR: /data/files
+      TRUST_PROXY_HOPS: "1" # um proxy na frente: o Caddy
+      ALLOWED_ORIGINS: https://${DOMAIN:?defina DOMAIN}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?defina DATA_ENCRYPTION_KEY (openssl rand -base64 32)}
+      APP_TIMEZONE: ${APP_TIMEZONE:-America/Sao_Paulo}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      PLUGGY_CLIENT_ID: ${PLUGGY_CLIENT_ID:-}
+      PLUGGY_CLIENT_SECRET: ${PLUGGY_CLIENT_SECRET:-}
+      PLUGGY_WEBHOOK_SECRET: ${PLUGGY_WEBHOOK_SECRET:-}
+      PLUGGY_WEBHOOK_URL: ${PLUGGY_WEBHOOK_URL:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@example.com}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+    volumes:
+      - files:/data/files
+    read_only: true
+    tmpfs: [/tmp]
+
+  web:
+    <<: *hardening
+    build: ./web
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs: [/tmp]
+
+  caddy:
+    <<: *hardening
+    image: caddy:2-alpine
+    depends_on: [api, web]
+    environment:
+      DOMAIN: ${DOMAIN}
+    # Portas só na interface do Tailscale (rede privada): nada aqui fica exposto na LAN de casa, só pros
+    # seus próprios aparelhos autorizados na sua tailnet. Veja TAILSCALE_IP no .env.production.
+    ports:
+      - "${TAILSCALE_IP:?defina TAILSCALE_IP (tailscale ip -4)}:80:80"
+      - "${TAILSCALE_IP}:443:443"
+      - "${TAILSCALE_IP}:443:443/udp"
+    volumes:
+      - ./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./ops/tailscale-certs:/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  pgdata:
+  files:
+  caddy_data:
+  caddy_config:

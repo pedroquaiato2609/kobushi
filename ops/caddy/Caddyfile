@@ -1,0 +1,40 @@
+# Borda: HTTPS, HSTS e roteamento. Acesso só via Tailscale (rede privada) — por isso o certificado vem do
+# próprio Tailscale (tailscale cert), não de Let's Encrypt: o domínio *.ts.net não é alcançável da internet
+# pública, então o desafio ACME normal nunca funcionaria. Veja ops/tailscale-certs/ e ops/renew-tailscale-cert.ps1.
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	tls /certs/{$DOMAIN}.crt /certs/{$DOMAIN}.key
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+
+	# Webhook do provedor: caminho exato; a API valida o segredo compartilhado.
+	@webhook {
+		path /webhooks/pluggy
+		method POST
+	}
+	handle @webhook {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy api:3000
+	}
+
+	handle /api/* {
+		request_body {
+			max_size 30MB
+		}
+		# flush_interval -1: respostas em streaming (chat com IA) chegam em tempo real.
+		reverse_proxy api:3000 {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+}
