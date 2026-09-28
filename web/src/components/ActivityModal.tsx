@@ -49,7 +49,8 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
   const remove = useAction(() => api.del(`/activities/${activity!.id}`), onClose);
 
   const flexible = f.timeMode !== 'fixed';
-  const toBlocks = (rows: BlockRow[]): TimeBlock[] => rows.map((r) => ({ startTime: r.startTime, endTime: r.endTime || null }));
+  // filtra linhas em branco (ex.: horário padrão deixado vazio de propósito, quando todo dia já tem o seu)
+  const toBlocks = (rows: BlockRow[]): TimeBlock[] => rows.filter((r) => r.startTime).map((r) => ({ startTime: r.startTime, endTime: r.endTime || null }));
   const weekdayBlocks: WeekdayBlocks[] = f.timeMode === 'fixed' && f.perDay
     ? f.weekdays.map((d) => ({ weekday: d, blocks: toBlocks(f.dayBlocks[d] ?? f.blocks) }))
     : [];
@@ -74,6 +75,8 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
   const slot = windowFor({ period: f.timeMode === 'period' ? f.period : null, notBefore: f.notBefore || null, notAfter: f.notAfter || null, durationMin: f.durationMin });
 
   const toggleDay = (d: number) => set('weekdays', f.weekdays.includes(d) ? f.weekdays.filter((x) => x !== d) : [...f.weekdays, d].sort());
+  // se todo dia selecionado já tem horário próprio, o padrão não serve de reserva pra ninguém — não precisa preencher
+  const allDaysOverridden = f.perDay && f.weekdays.length > 0 && f.weekdays.every((d) => d in f.dayBlocks);
 
   const setBlock = (i: number, patch: Partial<BlockRow>) => setF((prev) => ({ ...prev, blocks: prev.blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
   const addBlock = () => setF((prev) => ({ ...prev, blocks: [...prev.blocks, NEW_BLOCK] }));
@@ -136,13 +139,14 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
             <ul className="study-lesson-edit-list">
               {f.blocks.map((b, i) => (
                 <li key={i}>
-                  <input type="time" value={b.startTime} onChange={(e) => setBlock(i, { startTime: e.target.value })} required />
+                  <input type="time" value={b.startTime} onChange={(e) => setBlock(i, { startTime: e.target.value })} required={!allDaysOverridden} />
                   <input type="time" value={b.endTime} onChange={(e) => setBlock(i, { endTime: e.target.value })} title="Fim (opcional)" />
                   <button type="button" className="icon-btn" aria-label="Remover bloco" disabled={f.blocks.length === 1} onClick={() => removeBlock(i)}><Icon name="trash" size={14} /></button>
                 </li>
               ))}
             </ul>
             <button type="button" className="btn small" onClick={addBlock}><Icon name="plus" size={14} /> Adicionar bloco (ex.: manhã e tarde)</button>
+            {allDaysOverridden && <p className="hint">Todo dia selecionado já tem horário próprio abaixo — o padrão não é usado, pode deixar em branco.</p>}
           </fieldset>
 
           <label className="check">

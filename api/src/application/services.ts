@@ -88,10 +88,8 @@ export class ActivityService {
   /** Regras do método: o modo de horário define quais campos de horário fazem sentido. */
   private normalize(a: NewActivity): NewActivity {
     if (a.timeMode === 'period' && !a.period) throw new ValidationError('Atividade com período definido precisa de "period" (morning, afternoon ou night).');
-    if (a.timeMode === 'fixed' && a.blocks.length === 0) throw new ValidationError('Atividade com horário definido precisa de pelo menos um bloco de horário.');
     if (a.timeMode !== 'fixed' && a.notBefore && a.notAfter && a.notAfter <= a.notBefore) throw new ValidationError('"Antes das" precisa ser depois de "depois das".');
     const flexible = a.timeMode !== 'fixed';
-    const blocks = flexible ? [] : this.validateBlocks(a.blocks, 'blocks');
     // exceção por dia só faz sentido em horário definido, e só pros dias em que a atividade realmente ocorre
     const weekdaySet = new Set(a.weekdays);
     const seenDays = new Set<number>();
@@ -100,6 +98,11 @@ export class ActivityService {
       seenDays.add(w.weekday);
       return { weekday: w.weekday, blocks: this.validateBlocks(w.blocks, `weekdayBlocks (dia ${w.weekday})`) };
     });
+    // horário padrão só é obrigatório se sobrar algum dia sem exceção própria (senão não tem pra que servir de fallback)
+    const coveredDays = new Set(weekdayBlocks.map((w) => w.weekday));
+    const needsDefault = a.timeMode === 'fixed' && a.weekdays.some((d) => !coveredDays.has(d));
+    if (needsDefault && a.blocks.length === 0) throw new ValidationError('Atividade com horário definido precisa de um horário padrão (ou de uma exceção pra cada dia selecionado).');
+    const blocks = flexible ? [] : this.validateBlocks(a.blocks, 'blocks');
     return {
       ...a,
       notBefore: flexible ? a.notBefore : null, notAfter: flexible ? a.notAfter : null,

@@ -97,6 +97,22 @@ test('horário por dia da semana: um dia pode ter mais de um bloco, e some ao tr
   assert.deepEqual(updated.weekdayBlocks, []);
 });
 
+test('horário padrão só é obrigatório se sobrar dia sem exceção própria', async () => {
+  const svc = new ActivityService(memoryActivities());
+  // todo dia selecionado (seg e ter) já tem seu próprio horário: não precisa de "blocks"
+  const a = await svc.create({
+    name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', weekdays: [1, 2],
+    weekdayBlocks: [{ weekday: 1, blocks: [{ startTime: '20:30', endTime: '21:45' }] }, { weekday: 2, blocks: [{ startTime: '20:00', endTime: '21:00' }] }],
+  });
+  assert.deepEqual(a.blocks, []);
+
+  // sobrou quarta sem exceção: agora precisa do padrão
+  await assert.rejects(svc.create({
+    name: 'Trabalho 2', kind: 'obligation', timeMode: 'fixed', weekdays: [1, 2, 3],
+    weekdayBlocks: [{ weekday: 1, blocks: [{ startTime: '20:30', endTime: '21:45' }] }, { weekday: 2, blocks: [{ startTime: '20:00', endTime: '21:00' }] }],
+  }), ValidationError);
+});
+
 function statsService(activities: Activity[], executions: Execution[]) {
   const execRepo = { listRange: async () => executions } as unknown as ExecutionRepository;
   const medRepo = { list: async () => [] } as unknown as MeditationRepository;
