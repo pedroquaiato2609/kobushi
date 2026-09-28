@@ -74,14 +74,16 @@ services:
     depends_on: [api, web]
     environment:
       DOMAIN: ${DOMAIN}
-    # Portas só na interface do Tailscale (rede privada): nada aqui fica exposto na LAN de casa, só pros
-    # seus próprios aparelhos autorizados na sua tailnet. Veja TAILSCALE_IP no .env.production.
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    # Padrão (servidor público/VPS): escuta em todas as interfaces, HTTPS automático via Let's Encrypt.
+    # Modo Tailscale (PC de casa): BIND_IP=<tailscale ip -4> e CADDYFILE=./ops/caddy/Caddyfile.tailscale no .env.production,
+    # assim as portas ficam só na interface privada e o certificado vem de ops/tailscale-certs.
     ports:
-      - "${TAILSCALE_IP:?defina TAILSCALE_IP (tailscale ip -4)}:80:80"
-      - "${TAILSCALE_IP}:443:443"
-      - "${TAILSCALE_IP}:443:443/udp"
+      - "${BIND_IP:-0.0.0.0}:80:80"
+      - "${BIND_IP:-0.0.0.0}:443:443"
+      - "${BIND_IP:-0.0.0.0}:443:443/udp"
     volumes:
-      - ./ops/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${CADDYFILE:-./ops/caddy/Caddyfile}:/etc/caddy/Caddyfile:ro
       - ./ops/tailscale-certs:/certs:ro
       - caddy_data:/data
       - caddy_config:/config

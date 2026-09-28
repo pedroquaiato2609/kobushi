@@ -1,12 +1,11 @@
-# Borda pública: HTTPS automático (Let's Encrypt), HSTS e roteamento. Defina DOMAIN e ACME_EMAIL no .env.production
-# (o DNS do DOMAIN já precisa apontar para este servidor, com as portas 80 e 443 abertas).
-# Acesso privado via Tailscale: use ops/caddy/Caddyfile.tailscale (CADDYFILE no .env.production).
-{
-	email {$ACME_EMAIL}
-}
+# Borda: HTTPS, HSTS e roteamento. Acesso só via Tailscale (rede privada) — por isso o certificado vem do
+# próprio Tailscale (tailscale cert), não de Let's Encrypt: o domínio *.ts.net não é alcançável da internet
+# pública, então o desafio ACME normal nunca funcionaria. Veja ops/tailscale-certs/ e ops/renew-tailscale-cert.ps1.
 
 {$DOMAIN} {
 	encode zstd gzip
+
+	tls /certs/{$DOMAIN}.crt /certs/{$DOMAIN}.key
 
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
