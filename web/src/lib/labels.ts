@@ -7,8 +7,20 @@ export const LEVEL_LABEL: Record<Level, string> = { min: 'Mínimo', ideal: 'Idea
 export const LEVELS: Level[] = ['min', 'ideal', 'max'];
 export const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-export function timeLabel(a: Pick<Activity, 'timeMode' | 'period' | 'startTime' | 'endTime'>): string {
-  if (a.timeMode === 'fixed') return `${a.startTime}${a.endTime ? `–${a.endTime}` : ''}`;
+/** Resumo do horário; quando há exceção por dia, agrupa os dias que compartilham o mesmo horário (ex.: "Seg–Sex 20:30–21:45 · Sáb, Dom 09:00–10:00"). */
+export function timeLabel(a: Pick<Activity, 'timeMode' | 'period' | 'startTime' | 'endTime' | 'weekdays' | 'weekdayTimes'>): string {
+  if (a.timeMode === 'fixed') {
+    const base = `${a.startTime}${a.endTime ? `–${a.endTime}` : ''}`;
+    if (a.weekdayTimes.length === 0) return base;
+    const timeFor = (d: number) => { const o = a.weekdayTimes.find((w) => w.weekday === d); return o ? `${o.startTime}${o.endTime ? `–${o.endTime}` : ''}` : base; };
+    const groups: { days: number[]; time: string }[] = [];
+    for (const d of [...a.weekdays].sort((x, y) => x - y)) {
+      const t = timeFor(d);
+      const last = groups[groups.length - 1];
+      if (last && last.time === t) last.days.push(d); else groups.push({ days: [d], time: t });
+    }
+    return groups.map((g) => `${g.days.length > 2 ? `${WEEKDAY_SHORT[g.days[0]]}–${WEEKDAY_SHORT[g.days[g.days.length - 1]]}` : g.days.map((d) => WEEKDAY_SHORT[d]).join(', ')} ${g.time}`).join(' · ');
+  }
   if (a.timeMode === 'period') return a.period ? PERIOD_LABEL[a.period] : 'Período';
   return 'Horário livre';
 }

@@ -9,9 +9,11 @@ export type Repeat = 'none' | 'daily' | 'weekly';
 export type ProfileLevel = 'general' | 'private' | 'secret';
 export type DocKind = 'note' | 'list' | 'file';
 
+/** Horário só daquele dia da semana — substitui startTime/endTime da atividade, só pra esse weekday. */
+export interface WeekdayTime { weekday: number; startTime: string; endTime: string | null }
 export interface Activity {
   id: string; name: string; kind: ActivityKind; timeMode: TimeMode; period: Period | null;
-  startTime: string | null; endTime: string | null; notBefore: string | null; notAfter: string | null; durationMin: number;
+  startTime: string | null; endTime: string | null; weekdayTimes: WeekdayTime[]; notBefore: string | null; notAfter: string | null; durationMin: number;
   suggestedStart: string | null; suggestedReason: string; purpose: string; principle: string;
   minDesc: string; idealDesc: string; maxDesc: string; weekdays: number[]; active: boolean;
   remindTime: string | null; remindChannels: NotifyChannel[]; createdAt: string;

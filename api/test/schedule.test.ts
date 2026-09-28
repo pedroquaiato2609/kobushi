@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FREE_WINDOW as apiFree, PERIOD_WINDOW as apiPeriods, parseSuggestion, windowFor as apiWindow } from '../src/domain/schedule';
-import { FREE_WINDOW, PERIOD_WINDOW, placeFlexible, windowFor } from '../../web/src/lib/schedule';
+import { effectiveTime as apiEffectiveTime, FREE_WINDOW as apiFree, PERIOD_WINDOW as apiPeriods, parseSuggestion, windowFor as apiWindow } from '../src/domain/schedule';
+import { effectiveTime, FREE_WINDOW, PERIOD_WINDOW, placeFlexible, windowFor } from '../../web/src/lib/schedule';
 
 const base = { period: null, notBefore: null, notAfter: null, durationMin: 60 } as const;
 
@@ -11,6 +11,14 @@ test('as janelas do front e da API são idênticas', () => {
   for (const a of [{ ...base, period: 'morning' as const, notBefore: '08:30' }, { ...base, notAfter: '20:00' }, { ...base, period: 'night' as const, notAfter: '19:00', durationMin: 90 }]) {
     assert.deepEqual(windowFor(a), apiWindow(a));
   }
+});
+
+test('effectiveTime: usa a exceção do dia quando existe, senão o horário padrão; front e API concordam', () => {
+  const a = { startTime: '20:30', endTime: '21:45', weekdayTimes: [{ weekday: 0, startTime: '09:00', endTime: '10:00' }, { weekday: 6, startTime: '09:00', endTime: null }] };
+  for (const d of [0, 1, 2, 3, 4, 5, 6]) assert.deepEqual(effectiveTime(a, d), apiEffectiveTime(a, d));
+  assert.deepEqual(effectiveTime(a, 0), { startTime: '09:00', endTime: '10:00' }); // domingo: exceção
+  assert.deepEqual(effectiveTime(a, 6), { startTime: '09:00', endTime: null }); // sábado: exceção sem fim
+  assert.deepEqual(effectiveTime(a, 2), { startTime: '20:30', endTime: '21:45' }); // terça: sem exceção, usa o padrão
 });
 
 test('janela = período ∩ "depois das" ∩ "antes das"; vazia quando não cabe', () => {

@@ -36,6 +36,7 @@ export class ActivityService {
       period: input.period ?? null,
       startTime: input.startTime ?? null,
       endTime: input.endTime ?? null,
+      weekdayTimes: (input.weekdayTimes ?? []).map((w) => ({ weekday: w.weekday, startTime: w.startTime, endTime: w.endTime ?? null })),
       notBefore: input.notBefore ?? null, notAfter: input.notAfter ?? null, durationMin: input.durationMin ?? 60,
       suggestedStart: null, suggestedReason: '',
       purpose: input.purpose ?? '',
@@ -54,11 +55,12 @@ export class ActivityService {
     const clean = stripUndefined(patch) as Partial<NewActivity>;
     // valida a combinação final (atual + patch), mas grava só o patch
     const merged = this.normalize({ ...current, ...clean } as NewActivity);
-    if (['timeMode', 'period', 'startTime', 'endTime'].some((k) => k in clean)) {
+    if (['timeMode', 'period', 'startTime', 'endTime', 'weekdays', 'weekdayTimes'].some((k) => k in clean)) {
       // mantém os campos de horário coerentes com o modo escolhido
       clean.period = merged.period;
       clean.startTime = merged.startTime;
       clean.endTime = merged.endTime;
+      clean.weekdayTimes = merged.weekdayTimes;
     }
     // mudou quando/onde a atividade pode cair: a sugestão da IA deixa de valer (editar outros campos não apaga)
     if (['timeMode', 'period', 'notBefore', 'notAfter', 'durationMin'].some((k) => k in clean)) {
@@ -81,6 +83,15 @@ export class ActivityService {
     }
     if (a.timeMode !== 'fixed' && a.notBefore && a.notAfter && a.notAfter <= a.notBefore) throw new ValidationError('"Antes das" precisa ser depois de "depois das".');
     const flexible = a.timeMode !== 'fixed';
+    // exceção por dia só faz sentido em horário definido, e só pros dias em que a atividade realmente ocorre
+    const weekdaySet = new Set(a.weekdays);
+    const seen = new Set<number>();
+    const weekdayTimes = flexible ? [] : a.weekdayTimes.filter((w) => weekdaySet.has(w.weekday)).map((w) => {
+      if (seen.has(w.weekday)) throw new ValidationError(`O dia ${w.weekday} tem mais de um horário em "weekdayTimes".`);
+      seen.add(w.weekday);
+      if (w.endTime && w.endTime <= w.startTime) throw new ValidationError('Em "weekdayTimes", o horário de fim deve ser depois do início.');
+      return w;
+    });
     return {
       ...a,
       notBefore: flexible ? a.notBefore : null, notAfter: flexible ? a.notAfter : null,
@@ -88,6 +99,7 @@ export class ActivityService {
       period: a.timeMode === 'period' ? a.period : null,
       startTime: a.timeMode === 'fixed' ? a.startTime : null,
       endTime: a.timeMode === 'fixed' ? a.endTime : null,
+      weekdayTimes,
     };
   }
 }

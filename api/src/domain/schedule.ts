@@ -9,6 +9,14 @@ export const toHHmm = (min: number) => `${String(Math.floor(min / 60)).padStart(
 
 export interface Windowed { period: Period | null; notBefore: string | null; notAfter: string | null; durationMin: number }
 
+export interface Timed { startTime: string | null; endTime: string | null; weekdayTimes: { weekday: number; startTime: string; endTime: string | null }[] }
+
+/** Horário de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão o horário padrão. */
+export function effectiveTime(a: Timed, weekday: number): { startTime: string | null; endTime: string | null } {
+  const override = a.weekdayTimes.find((w) => w.weekday === weekday);
+  return override ? { startTime: override.startTime, endTime: override.endTime } : { startTime: a.startTime, endTime: a.endTime };
+}
+
 /** Janela permitida = período (ou o dia todo) ∩ "depois das" ∩ "antes das". Vazia quando não cabe a duração. */
 export function windowFor(a: Windowed): [number, number] | null {
   const [pStart, pEnd] = a.period ? PERIOD_WINDOW[a.period] : FREE_WINDOW;

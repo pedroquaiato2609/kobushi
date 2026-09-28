@@ -17,13 +17,19 @@ export const dateRangeSchema = rangeSchema;
 export const dateTimeRangeSchema = z.object({ from: dateTimeStr, to: dateTimeStr });
 
 // Atividades ------------------------------------------------------------
+export const weekdayTimeSchema = z.object({
+  weekday: z.number().int().min(0).max(6),
+  startTime: timeStr,
+  endTime: timeStr.nullable().optional(),
+});
 export const activityCreateSchema = z.object({
   name: z.string().min(1).max(120),
   kind: z.enum(ACTIVITY_KINDS).describe('obligation = obrigação; goal = objetivo; special = objetivo especial (meditação)'),
   timeMode: z.enum(TIME_MODES).optional().describe('fixed = horário definido; period = período definido; free = horário livre'),
   period: z.enum(PERIODS).nullable().optional().describe('obrigatório se timeMode = period'),
-  startTime: timeStr.nullable().optional().describe('obrigatório se timeMode = fixed'),
+  startTime: timeStr.nullable().optional().describe('obrigatório se timeMode = fixed; é o horário padrão dos dias sem exceção em weekdayTimes'),
   endTime: timeStr.nullable().optional(),
+  weekdayTimes: z.array(weekdayTimeSchema).max(7).optional().describe('só para timeMode = fixed: horário diferente em dias específicos (ex.: academia mais tarde no fim de semana). Cada weekday só pode aparecer uma vez; dias fora daqui usam startTime/endTime'),
   notBefore: timeStr.nullable().optional().describe('"depois das": horário mínimo de início (só para objetivos sem horário definido)'),
   notAfter: timeStr.nullable().optional().describe('"antes das": horário em que a atividade deve terminar (só para objetivos sem horário definido)'),
   durationMin: z.number().int().min(5).max(480).optional().describe('duração em minutos (padrão 60)'),

@@ -1,13 +1,17 @@
 import type { ActivityKind, DocKind, Level, NotifyChannel, Period, ProfileLevel, Repeat, TimeMode } from './constants';
 
+/** Horário só daquele dia da semana — substitui startTime/endTime da atividade, só pra esse weekday. */
+export interface WeekdayTime { weekday: number; startTime: string; endTime: string | null }
+
 export interface Activity {
   id: string;
   name: string;
   kind: ActivityKind;
   timeMode: TimeMode;
   period: Period | null;
-  startTime: string | null; // 'HH:mm'
+  startTime: string | null; // 'HH:mm' — horário padrão (fallback pros dias sem exceção em weekdayTimes)
   endTime: string | null;
+  weekdayTimes: WeekdayTime[]; // exceções por dia (ex.: academia mais tarde no fim de semana); vazio = mesmo horário todo dia
   notBefore: string | null; // 'HH:mm' — "depois das" (objetivos sem horário fixo)
   notAfter: string | null; // 'HH:mm' — "antes das"
   durationMin: number; // quanto tempo o bloco ocupa no calendário

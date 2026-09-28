@@ -17,6 +17,14 @@ export function windowFor(a: Windowed): [number, number] | null {
   return end - start >= Math.min(a.durationMin, 5) && end > start ? [start, end] : null;
 }
 
+type Timed = Pick<Activity, 'startTime' | 'endTime' | 'weekdayTimes'>;
+
+/** Horário de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão o horário padrão. */
+export function effectiveTime(a: Timed, weekday: number): { startTime: string | null; endTime: string | null } {
+  const override = a.weekdayTimes.find((w) => w.weekday === weekday);
+  return override ? { startTime: override.startTime, endTime: override.endTime } : { startTime: a.startTime, endTime: a.endTime };
+}
+
 export interface Busy { start: number; end: number }
 export interface FlexItem { id: string; window: [number, number]; durationMin: number; suggestedStart: number | null }
 export interface Placement {
