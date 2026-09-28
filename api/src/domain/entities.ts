@@ -1,7 +1,8 @@
 import type { ActivityKind, DocKind, Level, NotifyChannel, Period, ProfileLevel, Repeat, TimeMode } from './constants';
 
-/** Horário só daquele dia da semana — substitui startTime/endTime da atividade, só pra esse weekday. */
-export interface WeekdayTime { weekday: number; startTime: string; endTime: string | null }
+// Horário definido (timeMode = 'fixed'): um ou mais blocos (ex.: manhã + tarde), com possíveis exceções por dia.
+export interface TimeBlock { startTime: string; endTime: string | null }
+export interface WeekdayBlocks { weekday: number; blocks: TimeBlock[] }
 
 export interface Activity {
   id: string;
@@ -9,9 +10,8 @@ export interface Activity {
   kind: ActivityKind;
   timeMode: TimeMode;
   period: Period | null;
-  startTime: string | null; // 'HH:mm' — horário padrão (fallback pros dias sem exceção em weekdayTimes)
-  endTime: string | null;
-  weekdayTimes: WeekdayTime[]; // exceções por dia (ex.: academia mais tarde no fim de semana); vazio = mesmo horário todo dia
+  blocks: TimeBlock[]; // horário(s) padrão (fallback pros dias sem exceção em weekdayBlocks); só pra timeMode = fixed
+  weekdayBlocks: WeekdayBlocks[]; // exceções por dia (ex.: academia mais tarde no fim de semana); dia ausente usa "blocks"
   notBefore: string | null; // 'HH:mm' — "depois das" (objetivos sem horário fixo)
   notAfter: string | null; // 'HH:mm' — "antes das"
   durationMin: number; // quanto tempo o bloco ocupa no calendário

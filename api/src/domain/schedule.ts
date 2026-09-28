@@ -9,13 +9,17 @@ export const toHHmm = (min: number) => `${String(Math.floor(min / 60)).padStart(
 
 export interface Windowed { period: Period | null; notBefore: string | null; notAfter: string | null; durationMin: number }
 
-export interface Timed { startTime: string | null; endTime: string | null; weekdayTimes: { weekday: number; startTime: string; endTime: string | null }[] }
+export interface TimeBlock { startTime: string; endTime: string | null }
+export interface Timed { blocks: TimeBlock[]; weekdayBlocks: { weekday: number; blocks: TimeBlock[] }[] }
 
-/** Horário de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão o horário padrão. */
-export function effectiveTime(a: Timed, weekday: number): { startTime: string | null; endTime: string | null } {
-  const override = a.weekdayTimes.find((w) => w.weekday === weekday);
-  return override ? { startTime: override.startTime, endTime: override.endTime } : { startTime: a.startTime, endTime: a.endTime };
+/** Bloco(s) de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão os blocos padrão. */
+export function effectiveBlocks(a: Timed, weekday: number): TimeBlock[] {
+  const override = a.weekdayBlocks.find((w) => w.weekday === weekday);
+  return override ? override.blocks : a.blocks;
 }
+
+/** "07:30–11:30, 13:30–17:30" */
+export const blocksLabel = (blocks: TimeBlock[]): string => blocks.map((b) => `${b.startTime}${b.endTime ? `–${b.endTime}` : ''}`).join(', ');
 
 /** Janela permitida = período (ou o dia todo) ∩ "depois das" ∩ "antes das". Vazia quando não cabe a duração. */
 export function windowFor(a: Windowed): [number, number] | null {

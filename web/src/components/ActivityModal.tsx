@@ -1,28 +1,34 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import { useAction } from '../api/hooks';
-import type { Activity, ActivityKind, NotifyChannel, Period, TimeMode, WeekdayTime } from '../api/types';
+import type { Activity, ActivityKind, NotifyChannel, Period, TimeBlock, TimeMode, WeekdayBlocks } from '../api/types';
 import { KIND_LABEL, PERIOD_LABEL, WEEKDAY_SHORT } from '../lib/labels';
 import { toHHmm, windowFor } from '../lib/schedule';
 import { ChannelChecks } from './ChannelChecks';
 import { useConfirm } from './ConfirmProvider';
+import { Icon } from './Icon';
 import { ErrorText, Field, Modal } from './ui';
 
+type BlockRow = { startTime: string; endTime: string };
+const NEW_BLOCK: BlockRow = { startTime: '08:00', endTime: '' };
+
 interface Form {
-  name: string; kind: ActivityKind; timeMode: TimeMode; period: Period; startTime: string; endTime: string;
-  perDay: boolean; dayTimes: Record<number, { startTime: string; endTime: string }>;
+  name: string; kind: ActivityKind; timeMode: TimeMode; period: Period;
+  blocks: BlockRow[]; perDay: boolean; dayBlocks: Record<number, BlockRow[]>;
   purpose: string; principle: string; minDesc: string; idealDesc: string; maxDesc: string; weekdays: number[]; active: boolean;
   remindTime: string; remindChannels: NotifyChannel[];
   notBefore: string; notAfter: string; durationMin: number;
 }
 
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120, 180];
+const toRow = (b: TimeBlock): BlockRow => ({ startTime: b.startTime, endTime: b.endTime ?? '' });
 
 function initial(a?: Activity): Form {
-  const dayTimes = Object.fromEntries((a?.weekdayTimes ?? []).map((w) => [w.weekday, { startTime: w.startTime, endTime: w.endTime ?? '' }]));
   return {
     name: a?.name ?? '', kind: a?.kind ?? 'goal', timeMode: a?.timeMode ?? 'free', period: a?.period ?? 'morning',
-    startTime: a?.startTime ?? '08:00', endTime: a?.endTime ?? '', perDay: (a?.weekdayTimes.length ?? 0) > 0, dayTimes,
+    blocks: a?.blocks.length ? a.blocks.map(toRow) : [NEW_BLOCK],
+    perDay: (a?.weekdayBlocks.length ?? 0) > 0,
+    dayBlocks: Object.fromEntries((a?.weekdayBlocks ?? []).map((w) => [w.weekday, w.blocks.map(toRow)])),
     purpose: a?.purpose ?? '', principle: a?.principle ?? '',
     minDesc: a?.minDesc ?? '', idealDesc: a?.idealDesc ?? '', maxDesc: a?.maxDesc ?? '',
     weekdays: a?.weekdays ?? [0, 1, 2, 3, 4, 5, 6], active: a?.active ?? true,
@@ -43,18 +49,15 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
   const remove = useAction(() => api.del(`/activities/${activity!.id}`), onClose);
 
   const flexible = f.timeMode !== 'fixed';
-  const weekdayTimes: WeekdayTime[] = f.timeMode === 'fixed' && f.perDay
-    ? f.weekdays.map((d) => {
-        const t = f.dayTimes[d];
-        return { weekday: d, startTime: t?.startTime || f.startTime, endTime: t?.endTime || null };
-      })
+  const toBlocks = (rows: BlockRow[]): TimeBlock[] => rows.map((r) => ({ startTime: r.startTime, endTime: r.endTime || null }));
+  const weekdayBlocks: WeekdayBlocks[] = f.timeMode === 'fixed' && f.perDay
+    ? f.weekdays.map((d) => ({ weekday: d, blocks: toBlocks(f.dayBlocks[d] ?? f.blocks) }))
     : [];
   const payload = () => ({
     name: f.name.trim(), kind: f.kind, timeMode: f.timeMode,
     period: f.timeMode === 'period' ? f.period : null,
-    startTime: f.timeMode === 'fixed' ? f.startTime : null,
-    endTime: f.timeMode === 'fixed' && f.endTime ? f.endTime : null,
-    weekdayTimes,
+    blocks: f.timeMode === 'fixed' ? toBlocks(f.blocks) : [],
+    weekdayBlocks,
     purpose: f.purpose, principle: f.principle, minDesc: f.minDesc, idealDesc: f.idealDesc, maxDesc: f.maxDesc,
     weekdays: f.weekdays, active: f.active,
     remindTime: f.remindTime || null, remindChannels: f.remindTime ? f.remindChannels : [],
@@ -71,8 +74,17 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
   const slot = windowFor({ period: f.timeMode === 'period' ? f.period : null, notBefore: f.notBefore || null, notAfter: f.notAfter || null, durationMin: f.durationMin });
 
   const toggleDay = (d: number) => set('weekdays', f.weekdays.includes(d) ? f.weekdays.filter((x) => x !== d) : [...f.weekdays, d].sort());
-  const setDayTime = (d: number, patch: Partial<{ startTime: string; endTime: string }>) =>
-    setF((prev) => ({ ...prev, dayTimes: { ...prev.dayTimes, [d]: { startTime: prev.dayTimes[d]?.startTime ?? prev.startTime, endTime: prev.dayTimes[d]?.endTime ?? prev.endTime, ...patch } } }));
+
+  const setBlock = (i: number, patch: Partial<BlockRow>) => setF((prev) => ({ ...prev, blocks: prev.blocks.map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+  const addBlock = () => setF((prev) => ({ ...prev, blocks: [...prev.blocks, NEW_BLOCK] }));
+  const removeBlock = (i: number) => setF((prev) => ({ ...prev, blocks: prev.blocks.filter((_, j) => j !== i) }));
+
+  const dayBlocksFor = (d: number) => f.dayBlocks[d] ?? f.blocks;
+  const setDayBlock = (d: number, i: number, patch: Partial<BlockRow>) =>
+    setF((prev) => ({ ...prev, dayBlocks: { ...prev.dayBlocks, [d]: (prev.dayBlocks[d] ?? prev.blocks).map((b, j) => (j === i ? { ...b, ...patch } : b)) } }));
+  const addDayBlock = (d: number) => setF((prev) => ({ ...prev, dayBlocks: { ...prev.dayBlocks, [d]: [...(prev.dayBlocks[d] ?? prev.blocks), NEW_BLOCK] } }));
+  const removeDayBlock = (d: number, i: number) =>
+    setF((prev) => ({ ...prev, dayBlocks: { ...prev.dayBlocks, [d]: (prev.dayBlocks[d] ?? prev.blocks).filter((_, j) => j !== i) } }));
 
   return (
     <Modal
@@ -119,27 +131,45 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
       )}
       {f.timeMode === 'fixed' && (
         <>
-          <div className="row">
-            <Field label={f.perDay ? 'Início padrão' : 'Início'}><input type="time" value={f.startTime} onChange={(e) => set('startTime', e.target.value)} required /></Field>
-            <Field label={f.perDay ? 'Fim padrão (opcional)' : 'Fim (opcional)'}><input type="time" value={f.endTime} onChange={(e) => set('endTime', e.target.value)} /></Field>
-          </div>
+          <fieldset className="field">
+            <legend className="field-label">{f.perDay ? 'Horário padrão' : 'Horário'}</legend>
+            <ul className="study-lesson-edit-list">
+              {f.blocks.map((b, i) => (
+                <li key={i}>
+                  <input type="time" value={b.startTime} onChange={(e) => setBlock(i, { startTime: e.target.value })} required />
+                  <input type="time" value={b.endTime} onChange={(e) => setBlock(i, { endTime: e.target.value })} title="Fim (opcional)" />
+                  <button type="button" className="icon-btn" aria-label="Remover bloco" disabled={f.blocks.length === 1} onClick={() => removeBlock(i)}><Icon name="trash" size={14} /></button>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn small" onClick={addBlock}><Icon name="plus" size={14} /> Adicionar bloco (ex.: manhã e tarde)</button>
+          </fieldset>
+
           <label className="check">
             <input type="checkbox" checked={f.perDay} onChange={(e) => set('perDay', e.target.checked)} />
-            Horário diferente em algum dia (ex.: academia mais tarde no fim de semana)
+            Horário diferente em algum dia (ex.: academia só de manhã no fim de semana)
           </label>
           {f.perDay && (
             <fieldset className="field">
               <legend className="field-label">Horário de cada dia</legend>
-              <ul className="study-lesson-edit-list">
-                {f.weekdays.map((d) => (
-                  <li key={d}>
-                    <span className="muted small" style={{ minWidth: 34 }}>{WEEKDAY_SHORT[d]}</span>
-                    <input type="time" value={f.dayTimes[d]?.startTime ?? f.startTime} onChange={(e) => setDayTime(d, { startTime: e.target.value })} required />
-                    <input type="time" value={f.dayTimes[d]?.endTime ?? f.endTime} onChange={(e) => setDayTime(d, { endTime: e.target.value })} />
-                  </li>
-                ))}
-              </ul>
-              <p className="hint">Cada dia selecionado abaixo tem seu próprio horário; mude os dias ali que a lista se ajusta.</p>
+              {f.weekdays.map((d) => (
+                <div key={d} className="row" style={{ alignItems: 'flex-start' }}>
+                  <span className="muted small" style={{ minWidth: 34, paddingTop: 10 }}>{WEEKDAY_SHORT[d]}</span>
+                  <div style={{ flex: 1 }}>
+                    <ul className="study-lesson-edit-list">
+                      {dayBlocksFor(d).map((b, i) => (
+                        <li key={i}>
+                          <input type="time" value={b.startTime} onChange={(e) => setDayBlock(d, i, { startTime: e.target.value })} required />
+                          <input type="time" value={b.endTime} onChange={(e) => setDayBlock(d, i, { endTime: e.target.value })} title="Fim (opcional)" />
+                          <button type="button" className="icon-btn" aria-label="Remover bloco" disabled={dayBlocksFor(d).length === 1} onClick={() => removeDayBlock(d, i)}><Icon name="trash" size={14} /></button>
+                        </li>
+                      ))}
+                    </ul>
+                    <button type="button" className="btn small" onClick={() => addDayBlock(d)}><Icon name="plus" size={14} /> Bloco</button>
+                  </div>
+                </div>
+              ))}
+              <p className="hint">Cada dia selecionado abaixo tem seus próprios blocos; mude os dias ali que a lista se ajusta.</p>
             </fieldset>
           )}
         </>

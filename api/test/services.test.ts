@@ -8,7 +8,7 @@ import { ValidationError } from '../src/domain/errors';
 import type { Activity, Execution } from '../src/domain/entities';
 
 const make = (over: Partial<Activity> = {}): Activity => ({
-  id: 'a1', name: 'Leitura', kind: 'goal', timeMode: 'free', period: null, startTime: null, endTime: null, weekdayTimes: [],
+  id: 'a1', name: 'Leitura', kind: 'goal', timeMode: 'free', period: null, blocks: [], weekdayBlocks: [],
   purpose: '', principle: '', minDesc: '', idealDesc: '', maxDesc: '', weekdays: [0, 1, 2, 3, 4, 5, 6],
   active: true, remindTime: null, remindChannels: [], createdAt: new Date('2020-01-01T00:00:00Z'), updatedAt: new Date(), ...over,
 });
@@ -25,57 +25,76 @@ function memoryActivities(initial: Activity[] = []): ActivityRepository & { rows
   };
 }
 
-test('atividade com horário definido exige startTime', async () => {
+test('atividade com horário definido exige ao menos um bloco', async () => {
   const svc = new ActivityService(memoryActivities());
   await assert.rejects(svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed' }), ValidationError);
   await assert.rejects(svc.create({ name: 'Academia', kind: 'goal', timeMode: 'period' }), ValidationError);
 });
 
-test('trocar para horário livre zera período e horários', async () => {
+test('trocar para horário livre zera período e blocos', async () => {
   const repo = memoryActivities();
   const svc = new ActivityService(repo);
-  const a = await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', startTime: '08:00', endTime: '17:00' });
+  const a = await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '17:00' }] });
   const updated = await svc.update(a.id, { timeMode: 'free' });
-  assert.equal(updated.startTime, null);
-  assert.equal(updated.endTime, null);
+  assert.deepEqual(updated.blocks, []);
+});
+
+test('mais de um bloco por dia (ex.: trabalho de manhã e de tarde): ordena, exige fim entre blocos, recusa sobreposição', async () => {
+  const svc = new ActivityService(memoryActivities());
+  const a = await svc.create({
+    name: 'Trabalho', kind: 'obligation', timeMode: 'fixed',
+    blocks: [{ startTime: '13:30', endTime: '17:30' }, { startTime: '07:30', endTime: '11:30' }], // fora de ordem de propósito
+  });
+  assert.deepEqual(a.blocks, [{ startTime: '07:30', endTime: '11:30' }, { startTime: '13:30', endTime: '17:30' }]);
+
+  await assert.rejects(svc.create({
+    name: 'Turno', kind: 'obligation', timeMode: 'fixed',
+    blocks: [{ startTime: '07:30', endTime: '12:00' }, { startTime: '11:00', endTime: '15:00' }], // se sobrepõem
+  }), ValidationError);
+
+  await assert.rejects(svc.create({
+    name: 'Turno 2', kind: 'obligation', timeMode: 'fixed',
+    blocks: [{ startTime: '07:30', endTime: null }, { startTime: '11:00', endTime: '15:00' }], // bloco sem fim antes de outro
+  }), ValidationError);
 });
 
 test('horário por dia da semana: mantém exceções válidas, ignora dias não selecionados, exige fim depois do início', async () => {
   const svc = new ActivityService(memoryActivities());
   const a = await svc.create({
-    name: 'Academia', kind: 'goal', timeMode: 'fixed', startTime: '20:30', endTime: '21:45',
+    name: 'Academia', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '20:30', endTime: '21:45' }],
     weekdays: [1, 2, 3, 4, 5, 6, 0], // toda a semana
-    weekdayTimes: [{ weekday: 0, startTime: '09:00', endTime: '10:00' }, { weekday: 6, startTime: '09:00', endTime: '10:00' }],
+    weekdayBlocks: [{ weekday: 0, blocks: [{ startTime: '09:00', endTime: '10:00' }] }, { weekday: 6, blocks: [{ startTime: '09:00', endTime: '10:00' }] }],
   });
-  assert.deepEqual(a.weekdayTimes, [{ weekday: 0, startTime: '09:00', endTime: '10:00' }, { weekday: 6, startTime: '09:00', endTime: '10:00' }]);
+  assert.deepEqual(a.weekdayBlocks, [{ weekday: 0, blocks: [{ startTime: '09:00', endTime: '10:00' }] }, { weekday: 6, blocks: [{ startTime: '09:00', endTime: '10:00' }] }]);
 
   // exceção pra um dia que não está em weekdays é descartada, não dá erro
   const b = await svc.create({
-    name: 'Estudo', kind: 'goal', timeMode: 'fixed', startTime: '08:00', endTime: '09:00',
-    weekdays: [1, 2, 3, 4, 5], weekdayTimes: [{ weekday: 0, startTime: '10:00', endTime: '11:00' }],
+    name: 'Estudo', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '09:00' }],
+    weekdays: [1, 2, 3, 4, 5], weekdayBlocks: [{ weekday: 0, blocks: [{ startTime: '10:00', endTime: '11:00' }] }],
   });
-  assert.deepEqual(b.weekdayTimes, []);
+  assert.deepEqual(b.weekdayBlocks, []);
 
   await assert.rejects(svc.create({
-    name: 'Leitura', kind: 'goal', timeMode: 'fixed', startTime: '20:00', weekdays: [0],
-    weekdayTimes: [{ weekday: 0, startTime: '09:00', endTime: '08:00' }],
+    name: 'Leitura', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '20:00', endTime: null }], weekdays: [0],
+    weekdayBlocks: [{ weekday: 0, blocks: [{ startTime: '09:00', endTime: '08:00' }] }],
   }), ValidationError);
 
   await assert.rejects(svc.create({
-    name: 'Projeto', kind: 'goal', timeMode: 'fixed', startTime: '20:00', weekdays: [0],
-    weekdayTimes: [{ weekday: 0, startTime: '09:00' }, { weekday: 0, startTime: '10:00' }],
+    name: 'Projeto', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '20:00', endTime: null }], weekdays: [0],
+    weekdayBlocks: [{ weekday: 0, blocks: [{ startTime: '09:00', endTime: null }] }, { weekday: 0, blocks: [{ startTime: '10:00', endTime: null }] }],
   }), ValidationError);
 });
 
-test('horário por dia da semana: só vale para timeMode fixed, e some ao trocar pra livre/período', async () => {
+test('horário por dia da semana: um dia pode ter mais de um bloco, e some ao trocar pra livre/período', async () => {
   const svc = new ActivityService(memoryActivities());
   const a = await svc.create({
-    name: 'Academia', kind: 'goal', timeMode: 'fixed', startTime: '20:30', weekdays: [0, 6],
-    weekdayTimes: [{ weekday: 6, startTime: '09:00', endTime: null }],
+    name: 'Academia', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '20:30', endTime: null }], weekdays: [0, 6],
+    weekdayBlocks: [{ weekday: 6, blocks: [{ startTime: '07:00', endTime: '08:00' }, { startTime: '17:00', endTime: '18:00' }] }],
   });
-  assert.equal(a.weekdayTimes.length, 1);
+  assert.equal(a.weekdayBlocks.length, 1);
+  assert.equal(a.weekdayBlocks[0].blocks.length, 2);
   const updated = await svc.update(a.id, { timeMode: 'free' });
-  assert.deepEqual(updated.weekdayTimes, []);
+  assert.deepEqual(updated.weekdayBlocks, []);
 });
 
 function statsService(activities: Activity[], executions: Execution[]) {

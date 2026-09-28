@@ -1,4 +1,5 @@
-import type { Activity, ActivityKind, Level, Period } from '../api/types';
+import type { Activity, ActivityKind, Level, Period, TimeBlock } from '../api/types';
+import { effectiveBlocks } from './schedule';
 
 export const KIND_LABEL: Record<ActivityKind, string> = { obligation: 'Obrigação', goal: 'Objetivo', special: 'Objetivo especial (meditação)' };
 export const KIND_GROUP: Record<ActivityKind, string> = { obligation: 'Obrigações', goal: 'Objetivos', special: 'Meditação' };
@@ -7,15 +8,17 @@ export const LEVEL_LABEL: Record<Level, string> = { min: 'Mínimo', ideal: 'Idea
 export const LEVELS: Level[] = ['min', 'ideal', 'max'];
 export const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-/** Resumo do horário; quando há exceção por dia, agrupa os dias que compartilham o mesmo horário (ex.: "Seg–Sex 20:30–21:45 · Sáb, Dom 09:00–10:00"). */
-export function timeLabel(a: Pick<Activity, 'timeMode' | 'period' | 'startTime' | 'endTime' | 'weekdays' | 'weekdayTimes'>): string {
+/** "07:30–11:30, 13:30–17:30" */
+export const blocksLabel = (blocks: TimeBlock[]): string => blocks.map((b) => `${b.startTime}${b.endTime ? `–${b.endTime}` : ''}`).join(', ');
+
+/** Resumo do horário; quando há exceção por dia, agrupa os dias que compartilham o mesmo horário (ex.: "Seg–Sex 07:30–11:30, 13:30–17:30 · Sáb, Dom 09:00–10:00"). */
+export function timeLabel(a: Pick<Activity, 'timeMode' | 'period' | 'weekdays' | 'blocks' | 'weekdayBlocks'>): string {
   if (a.timeMode === 'fixed') {
-    const base = `${a.startTime}${a.endTime ? `–${a.endTime}` : ''}`;
-    if (a.weekdayTimes.length === 0) return base;
-    const timeFor = (d: number) => { const o = a.weekdayTimes.find((w) => w.weekday === d); return o ? `${o.startTime}${o.endTime ? `–${o.endTime}` : ''}` : base; };
+    const base = blocksLabel(a.blocks);
+    if (a.weekdayBlocks.length === 0) return base;
     const groups: { days: number[]; time: string }[] = [];
     for (const d of [...a.weekdays].sort((x, y) => x - y)) {
-      const t = timeFor(d);
+      const t = blocksLabel(effectiveBlocks(a, d));
       const last = groups[groups.length - 1];
       if (last && last.time === t) last.days.push(d); else groups.push({ days: [d], time: t });
     }

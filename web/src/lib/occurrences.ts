@@ -1,6 +1,6 @@
 import type { Activity, Execution, Level } from '../api/types';
 import { parseYmd, ymd } from './dates';
-import { effectiveTime } from './schedule';
+import { effectiveBlocks } from './schedule';
 
 export interface Occurrence { activity: Activity; date: string; level: Level | null }
 
@@ -13,6 +13,6 @@ export function occurrencesOn(date: string, activities: Activity[], executions: 
   const rank = (a: Activity) => (a.timeMode === 'fixed' ? 0 : a.timeMode === 'period' ? 1 + PERIOD_ORDER[a.period ?? 'morning'] : 5);
   return activities
     .filter((a) => a.active && a.weekdays.includes(weekday) && ymd(new Date(a.createdAt)) <= date)
-    .sort((a, b) => rank(a) - rank(b) || (effectiveTime(a, weekday).startTime ?? '').localeCompare(effectiveTime(b, weekday).startTime ?? '') || a.name.localeCompare(b.name))
+    .sort((a, b) => rank(a) - rank(b) || (effectiveBlocks(a, weekday)[0]?.startTime ?? '').localeCompare(effectiveBlocks(b, weekday)[0]?.startTime ?? '') || a.name.localeCompare(b.name))
     .map((activity) => ({ activity, date, level: done.get(activity.id) ?? null }));
 }

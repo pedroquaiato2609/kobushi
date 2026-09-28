@@ -1,6 +1,6 @@
 import { nowLocal, todayIn, tzOffsetLabel } from '../domain/dates';
 import type { Activity } from '../domain/entities';
-import { effectiveTime } from '../domain/schedule';
+import { blocksLabel, effectiveBlocks } from '../domain/schedule';
 import type { AgentSettings } from './ports';
 
 const KIND: Record<Activity['kind'], string> = { obligation: 'obrigação', goal: 'objetivo', special: 'objetivo especial' };
@@ -10,8 +10,8 @@ const DAY_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 function when(a: Activity): string {
   if (a.timeMode === 'fixed') {
-    if (a.weekdayTimes.length === 0) return `${a.startTime}${a.endTime ? `–${a.endTime}` : ''}`;
-    return a.weekdays.map((d) => { const t = effectiveTime(a, d); return `${DAY_PT[d]} ${t.startTime}${t.endTime ? `–${t.endTime}` : ''}`; }).join(', ');
+    if (a.weekdayBlocks.length === 0) return blocksLabel(a.blocks);
+    return a.weekdays.map((d) => `${DAY_PT[d]} ${blocksLabel(effectiveBlocks(a, d))}`).join(', ');
   }
   if (a.timeMode === 'period') return `período: ${PERIOD[a.period ?? ''] ?? '?'}`;
   return 'horário livre';

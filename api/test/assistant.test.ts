@@ -9,13 +9,13 @@ import { FinanceService } from '../src/application/finance/service';
 import { detect, SuggestionService, type AssistantSettings, type Signals, type Suggestion } from '../src/application/suggestions';
 
 // ============================================================ sugestões proativas
-const act = (over: Record<string, unknown>) => ({ id: 'a1', name: 'Atividade', kind: 'goal', timeMode: 'free', startTime: null, endTime: null, period: null, weekdays: [0, 1, 2, 3, 4, 5, 6], active: true, minDesc: '', idealDesc: '', maxDesc: '', principle: '', remindTime: null, remindChannels: [], ...over }) as any;
+const act = (over: Record<string, unknown>) => ({ id: 'a1', name: 'Atividade', kind: 'goal', timeMode: 'free', blocks: [], weekdayBlocks: [], period: null, weekdays: [0, 1, 2, 3, 4, 5, 6], active: true, minDesc: '', idealDesc: '', maxDesc: '', principle: '', remindTime: null, remindChannels: [], ...over }) as any;
 const ev = (id: string, title: string, start: string, end: string) => ({ id, title, start, end, description: '', location: '', activityId: null, remindMinutes: null, remindChannels: [] }) as any;
 const base = (over: Partial<Signals> = {}): Signals => ({ today: '2026-09-21', nowMinutes: 17 * 60, activities: [], executions: [], events: [], reviewDoneToday: true, overdueCards: [], financeInsights: [], ...over });
 const keys = (s: Signals) => detect(s).map((c) => c.key);
 
 test('sinais: obrigação de amanhã sem lembrete aparece só à tarde/noite e explica o motivo', () => {
-  const work = act({ id: 'work', name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', startTime: '08:00', endTime: '12:00', weekdays: [1, 2, 3, 4, 5] });
+  const work = act({ id: 'work', name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '12:00' }], weekdays: [1, 2, 3, 4, 5] });
   const c = detect(base({ activities: [work] })).find((x) => x.key === 'remind:work:2026-09-22')!;
   assert.match(c.title, /amanhã às 08:00/); assert.ok(c.reason && c.data.length >= 1); assert.equal(c.actions[0].kind, 'chat');
   assert.deepEqual(keys(base({ nowMinutes: 10 * 60, activities: [work] })), []);                                 // de manhã ainda não faz sentido
@@ -63,7 +63,7 @@ function suggestionHarness(signals: Signals, settings: Partial<AssistantSettings
   return { service, rows, created, set: (p: Partial<AssistantSettings>) => (cfg = { ...cfg, ...p }) };
 }
 const manySignals = () => base({
-  activities: [act({ id: 'work', name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', startTime: '08:00', endTime: '12:00', weekdays: [1, 2, 3, 4, 5] }), act({ id: 'gym', name: 'Academia' })],
+  activities: [act({ id: 'work', name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '12:00' }], weekdays: [1, 2, 3, 4, 5] }), act({ id: 'gym', name: 'Academia' })],
   events: [ev('e1', 'A', '2026-09-22T14:00', '2026-09-22T15:00'), ev('e2', 'B', '2026-09-22T14:30', '2026-09-22T15:30')],
   nowMinutes: 21 * 60, reviewDoneToday: false,
 });

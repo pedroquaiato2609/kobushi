@@ -2,7 +2,7 @@
 // é validada aqui, então uma resposta fora do permitido nunca chega ao calendário.
 import { ValidationError } from '../domain/errors';
 import type { Activity } from '../domain/entities';
-import { PERIOD_WINDOW, effectiveTime, parseSuggestion, toHHmm, windowFor } from '../domain/schedule';
+import { PERIOD_WINDOW, blocksLabel, effectiveBlocks, parseSuggestion, toHHmm, windowFor } from '../domain/schedule';
 import type { ActivityRepository } from './ports';
 
 export type AskAi = (system: string, user: string) => Promise<string>;
@@ -15,10 +15,10 @@ export const SCHEDULE_SYSTEM = 'Você é um assistente de planejamento de rotina
 export function schedulePrompt(a: Activity, window: [number, number], all: Activity[]): string {
   const dayName = (d: number) => ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][d];
   const day = (x: Activity) => x.weekdays.length === 7 ? 'todos os dias' : x.weekdays.map(dayName).join(', ');
-  const fixedLine = (x: Activity) => x.weekdayTimes.length === 0
-    ? `- ${x.name}: ${x.startTime}–${x.endTime ?? '?'} (${day(x)})`
-    : `- ${x.name}: ${x.weekdays.map((d) => { const t = effectiveTime(x, d); return `${dayName(d)} ${t.startTime}–${t.endTime ?? '?'}`; }).join(', ')}`;
-  const fixed = all.filter((x) => x.active && x.id !== a.id && x.timeMode === 'fixed' && x.startTime).map(fixedLine);
+  const fixedLine = (x: Activity) => x.weekdayBlocks.length === 0
+    ? `- ${x.name}: ${blocksLabel(x.blocks)} (${day(x)})`
+    : `- ${x.name}: ${x.weekdays.map((d) => `${dayName(d)} ${blocksLabel(effectiveBlocks(x, d))}`).join(', ')}`;
+  const fixed = all.filter((x) => x.active && x.id !== a.id && x.timeMode === 'fixed' && x.blocks.length > 0).map(fixedLine);
   const flex = all.filter((x) => x.active && x.id !== a.id && x.timeMode !== 'fixed')
     .map((x) => { const w = windowFor(x); return `- ${x.name}: ${x.durationMin} min, janela ${w ? range(w) : 'indefinida'}${x.suggestedStart ? `, já sugerido ${x.suggestedStart}` : ''}`; });
   return [

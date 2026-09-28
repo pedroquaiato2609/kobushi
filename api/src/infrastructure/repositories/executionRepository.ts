@@ -5,31 +5,46 @@ import type { Db } from '../db/pool';
 import { hhmm, mapRow, mapRows } from '../db/util';
 import { toActivity } from './activityRepository';
 
+const KIND_ORDER = { obligation: 0, goal: 1, special: 2 } as const;
+const PERIOD_ORDER = { morning: 0, afternoon: 1, night: 2 } as const;
+
 export class PgExecutionRepository implements ExecutionRepository {
   constructor(private db: Db) {}
 
   async dayPlan(date: string, weekday: number): Promise<DayPlanItem[]> {
     const { rows } = await this.db.query(
-      `SELECT a.*, e.level AS exec_level, e.note AS exec_note,
-              COALESCE(wt.start_time, a.start_time) AS effective_start_time,
-              COALESCE(wt.end_time, a.end_time) AS effective_end_time
+      `SELECT a.*, e.level AS exec_level, e.note AS exec_note
          FROM activities a
          LEFT JOIN activity_executions e ON e.activity_id = a.id AND e.date = $1
-         LEFT JOIN activity_weekday_times wt ON wt.activity_id = a.id AND wt.weekday = $2
-        WHERE a.active AND $2 = ANY (a.weekdays)
-        ORDER BY CASE a.kind WHEN 'obligation' THEN 0 WHEN 'goal' THEN 1 ELSE 2 END,
-                 effective_start_time NULLS LAST,
-                 CASE a.period WHEN 'morning' THEN 0 WHEN 'afternoon' THEN 1 WHEN 'night' THEN 2 ELSE 3 END,
-                 a.created_at`,
+        WHERE a.active AND $2 = ANY (a.weekdays)`,
       [date, weekday],
     );
-    return rows.map(({ exec_level, exec_note, effective_start_time, effective_end_time, ...row }) => ({
-      ...toActivity(row),
-      startTime: hhmm(effective_start_time),
-      endTime: hhmm(effective_end_time),
-      executionLevel: (exec_level ?? null) as Level | null,
-      executionNote: (exec_note ?? '') as string,
-    }));
+    // Bloco(s) efetivos de cada atividade NESSE dia: os deste weekday se houver exceção, senão os padrão (weekday NULL).
+    const { rows: blockRows } = await this.db.query(
+      'SELECT * FROM activity_time_blocks WHERE activity_id = ANY($1) AND (weekday IS NULL OR weekday = $2) ORDER BY position',
+      [rows.map((r) => r.id), weekday],
+    );
+    const byActivity = new Map<string, Record<string, any>[]>();
+    for (const r of blockRows) { const list = byActivity.get(r.activity_id) ?? []; list.push(r); byActivity.set(r.activity_id, list); }
+
+    const items = rows.map(({ exec_level, exec_note, ...row }) => {
+      const all = byActivity.get(row.id) ?? [];
+      const dayRows = all.filter((r) => r.weekday === weekday);
+      const blocks = (dayRows.length > 0 ? dayRows : all.filter((r) => r.weekday === null))
+        .map((r) => ({ startTime: hhmm(r.start_time) as string, endTime: hhmm(r.end_time) }));
+      return {
+        ...toActivity(row, blocks, []),
+        executionLevel: (exec_level ?? null) as Level | null,
+        executionNote: (exec_note ?? '') as string,
+      };
+    });
+
+    items.sort((a, b) =>
+      KIND_ORDER[a.kind] - KIND_ORDER[b.kind]
+      || (a.blocks[0]?.startTime ?? '￿').localeCompare(b.blocks[0]?.startTime ?? '￿')
+      || (a.period ? PERIOD_ORDER[a.period] : 3) - (b.period ? PERIOD_ORDER[b.period] : 3)
+      || a.createdAt.getTime() - b.createdAt.getTime());
+    return items;
   }
 
   async upsert(activityId: string, date: string, level: Level, note?: string): Promise<Execution> {

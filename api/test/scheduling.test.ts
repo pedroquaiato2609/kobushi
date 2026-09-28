@@ -23,7 +23,7 @@ test('atividade: "depois das"/"antes das" e duração são guardados; horário f
   const svc = new ActivityService(memRepo());
   const g = await svc.create({ ...goal, notBefore: '08:00', notAfter: '11:00', durationMin: 90 });
   assert.equal(g.notBefore, '08:00'); assert.equal(g.notAfter, '11:00'); assert.equal(g.durationMin, 90);
-  const fixed = await svc.update(g.id, { timeMode: 'fixed', startTime: '09:00' });
+  const fixed = await svc.update(g.id, { timeMode: 'fixed', blocks: [{ startTime: '09:00' }] });
   assert.equal(fixed.notBefore, null); assert.equal(fixed.notAfter, null);
   await assert.rejects(svc.create({ ...goal, notBefore: '11:00', notAfter: '09:00' }), /Antes das/);
 });
@@ -53,7 +53,7 @@ test('sugestão da IA: recusa horário fixo e janela impossível', async () => {
   const repo = memRepo();
   const svc = new ActivityService(repo);
   const sched = new ActivitySchedulingService(repo);
-  const fixed = await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', startTime: '08:00', endTime: '17:00' });
+  const fixed = await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '17:00' }] });
   await assert.rejects(sched.suggest(fixed.id, async () => '{}'), /já tem horário definido/);
   const impossible = await svc.create({ ...goal, notBefore: '13:00' }); // depois das 13h não é manhã
   await assert.rejects(sched.suggest(impossible.id, async () => '{}'), /janela livre/);
@@ -62,7 +62,7 @@ test('sugestão da IA: recusa horário fixo e janela impossível', async () => {
 test('o prompt da IA leva compromissos fixos e a janela, e trata o conteúdo como dados', async () => {
   const repo = memRepo();
   const svc = new ActivityService(repo);
-  await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', startTime: '08:00', endTime: '17:30' });
+  await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: '17:30' }] });
   const g = await svc.create({ ...goal, name: 'Academia', notBefore: '06:00', notAfter: '10:00' });
   const p = schedulePrompt(g, [360, 600], repo.rows);
   assert.match(p, /Trabalho: 08:00–17:30/);

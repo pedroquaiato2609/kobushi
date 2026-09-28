@@ -7,7 +7,7 @@ import { sanitizeRichHtml } from './richText';
 import type { Level } from '../domain/constants';
 import type {
   Activity, ActivityStats, BoardFull, CalendarEvent, DayPlanItem, DayStats, MeditationSession,
-  ActivityMatrixRow, NewActivity, ReviewFields, Stats,
+  ActivityMatrixRow, NewActivity, ReviewFields, Stats, TimeBlock,
 } from '../domain/entities';
 import type {
   ActivityRepository, BoardRepository, EventRepository, ExecutionRepository, MeditationRepository, ReviewRepository,
@@ -34,9 +34,8 @@ export class ActivityService {
       name: input.name, kind: input.kind,
       timeMode: input.timeMode ?? 'free',
       period: input.period ?? null,
-      startTime: input.startTime ?? null,
-      endTime: input.endTime ?? null,
-      weekdayTimes: (input.weekdayTimes ?? []).map((w) => ({ weekday: w.weekday, startTime: w.startTime, endTime: w.endTime ?? null })),
+      blocks: (input.blocks ?? []).map((b) => ({ startTime: b.startTime, endTime: b.endTime ?? null })),
+      weekdayBlocks: (input.weekdayBlocks ?? []).map((w) => ({ weekday: w.weekday, blocks: w.blocks.map((b) => ({ startTime: b.startTime, endTime: b.endTime ?? null })) })),
       notBefore: input.notBefore ?? null, notAfter: input.notAfter ?? null, durationMin: input.durationMin ?? 60,
       suggestedStart: null, suggestedReason: '',
       purpose: input.purpose ?? '',
@@ -55,12 +54,11 @@ export class ActivityService {
     const clean = stripUndefined(patch) as Partial<NewActivity>;
     // valida a combinação final (atual + patch), mas grava só o patch
     const merged = this.normalize({ ...current, ...clean } as NewActivity);
-    if (['timeMode', 'period', 'startTime', 'endTime', 'weekdays', 'weekdayTimes'].some((k) => k in clean)) {
+    if (['timeMode', 'period', 'blocks', 'weekdays', 'weekdayBlocks'].some((k) => k in clean)) {
       // mantém os campos de horário coerentes com o modo escolhido
       clean.period = merged.period;
-      clean.startTime = merged.startTime;
-      clean.endTime = merged.endTime;
-      clean.weekdayTimes = merged.weekdayTimes;
+      clean.blocks = merged.blocks;
+      clean.weekdayBlocks = merged.weekdayBlocks;
     }
     // mudou quando/onde a atividade pode cair: a sugestão da IA deixa de valer (editar outros campos não apaga)
     if (['timeMode', 'period', 'notBefore', 'notAfter', 'durationMin'].some((k) => k in clean)) {
@@ -74,32 +72,40 @@ export class ActivityService {
     if (!(await this.repo.delete(id))) throw new NotFoundError('Atividade');
   }
 
+  /** Um ou mais blocos do mesmo horário (padrão ou de um dia): fim depois do início, sem sobreposição entre eles. */
+  private validateBlocks(blocks: TimeBlock[], label: string): TimeBlock[] {
+    const sorted = [...blocks].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    for (let i = 0; i < sorted.length; i++) {
+      const b = sorted[i];
+      if (b.endTime && b.endTime <= b.startTime) throw new ValidationError(`Em "${label}", o horário de fim deve ser depois do início.`);
+      const next = sorted[i + 1];
+      if (next && !b.endTime) throw new ValidationError(`Em "${label}", todo bloco antes de outro precisa de um horário de fim.`);
+      if (next && b.endTime! > next.startTime) throw new ValidationError(`Em "${label}", os blocos de horário não podem se sobrepor.`);
+    }
+    return sorted;
+  }
+
   /** Regras do método: o modo de horário define quais campos de horário fazem sentido. */
   private normalize(a: NewActivity): NewActivity {
     if (a.timeMode === 'period' && !a.period) throw new ValidationError('Atividade com período definido precisa de "period" (morning, afternoon ou night).');
-    if (a.timeMode === 'fixed') {
-      if (!a.startTime) throw new ValidationError('Atividade com horário definido precisa de "startTime".');
-      if (a.endTime && a.endTime <= a.startTime) throw new ValidationError('"endTime" deve ser depois de "startTime".');
-    }
+    if (a.timeMode === 'fixed' && a.blocks.length === 0) throw new ValidationError('Atividade com horário definido precisa de pelo menos um bloco de horário.');
     if (a.timeMode !== 'fixed' && a.notBefore && a.notAfter && a.notAfter <= a.notBefore) throw new ValidationError('"Antes das" precisa ser depois de "depois das".');
     const flexible = a.timeMode !== 'fixed';
+    const blocks = flexible ? [] : this.validateBlocks(a.blocks, 'blocks');
     // exceção por dia só faz sentido em horário definido, e só pros dias em que a atividade realmente ocorre
     const weekdaySet = new Set(a.weekdays);
-    const seen = new Set<number>();
-    const weekdayTimes = flexible ? [] : a.weekdayTimes.filter((w) => weekdaySet.has(w.weekday)).map((w) => {
-      if (seen.has(w.weekday)) throw new ValidationError(`O dia ${w.weekday} tem mais de um horário em "weekdayTimes".`);
-      seen.add(w.weekday);
-      if (w.endTime && w.endTime <= w.startTime) throw new ValidationError('Em "weekdayTimes", o horário de fim deve ser depois do início.');
-      return w;
+    const seenDays = new Set<number>();
+    const weekdayBlocks = flexible ? [] : a.weekdayBlocks.filter((w) => weekdaySet.has(w.weekday)).map((w) => {
+      if (seenDays.has(w.weekday)) throw new ValidationError(`O dia ${w.weekday} tem mais de uma exceção em "weekdayBlocks".`);
+      seenDays.add(w.weekday);
+      return { weekday: w.weekday, blocks: this.validateBlocks(w.blocks, `weekdayBlocks (dia ${w.weekday})`) };
     });
     return {
       ...a,
       notBefore: flexible ? a.notBefore : null, notAfter: flexible ? a.notAfter : null,
       suggestedStart: flexible ? a.suggestedStart : null,
       period: a.timeMode === 'period' ? a.period : null,
-      startTime: a.timeMode === 'fixed' ? a.startTime : null,
-      endTime: a.timeMode === 'fixed' ? a.endTime : null,
-      weekdayTimes,
+      blocks, weekdayBlocks,
     };
   }
 }

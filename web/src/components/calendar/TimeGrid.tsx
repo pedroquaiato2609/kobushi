@@ -6,7 +6,7 @@ import { cap, fmt, ymd } from '../../lib/dates';
 import { LEVEL_LABEL } from '../../lib/labels';
 import { assignLanes, layoutDay, type Placed } from '../../lib/layout';
 import type { Occurrence } from '../../lib/occurrences';
-import { effectiveTime, placeFlexible, toHHmm, windowFor, type Placement } from '../../lib/schedule';
+import { effectiveBlocks, placeFlexible, toHHmm, windowFor, type Placement } from '../../lib/schedule';
 
 const HOUR = 48; // px por hora
 const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
@@ -16,11 +16,10 @@ const status = (o: Occurrence) => `${o.activity.name} — ${o.level ? LEVEL_LABE
 /** Objetivos sem horário fixo: encaixados no período/janela, desviando de obrigações, eventos e uns dos outros. */
 function planGoals(occ: Occurrence[], events: Placed[], weekday: number): { o: Occurrence; p: Placement }[] {
   const busy = [
-    ...occ.filter((o) => o.activity.timeMode === 'fixed' && o.activity.startTime).map((o) => {
-      const { startTime, endTime } = effectiveTime(o.activity, weekday);
-      const start = toMin(startTime as string);
-      return { start, end: endTime ? toMin(endTime) : start + 60 };
-    }),
+    ...occ.filter((o) => o.activity.timeMode === 'fixed').flatMap((o) => effectiveBlocks(o.activity, weekday).map((b) => {
+      const start = toMin(b.startTime);
+      return { start, end: b.endTime ? toMin(b.endTime) : start + 60 };
+    })),
     ...events.map((e) => ({ start: e.s, end: e.e })),
   ];
   const flex = occ.filter((o) => o.activity.timeMode !== 'fixed').flatMap((o) => {
@@ -94,18 +93,17 @@ export function TimeGrid({ days, events, actsOn, selected, dayLine, onOpenDay, o
               }}
             >
               {isToday(d) && <div className="tg-now" style={{ top: nowTop }} />}
-              {assignLanes(dayOcc.filter((o) => o.activity.timeMode === 'fixed' && o.activity.startTime).map((o) => {
-                const t = effectiveTime(o.activity, weekday);
-                const s = toMin(t.startTime as string);
-                return { o, s, e: t.endTime ? toMin(t.endTime) : s + 60, t };
-              })).map(({ o, s, e, t, lane, lanes }) => {
+              {assignLanes(dayOcc.filter((o) => o.activity.timeMode === 'fixed').flatMap((o) => effectiveBlocks(o.activity, weekday).map((t, i) => {
+                const s = toMin(t.startTime);
+                return { o, i, s, e: t.endTime ? toMin(t.endTime) : s + 60, t };
+              }))).map(({ o, i, s, e, t, lane, lanes }) => {
                 const box = {
                   top: (s / 60) * HOUR, height: Math.max(((e - s) / 60) * HOUR, 22),
                   left: `calc(${(lane / lanes) * 100}%)`, width: `calc(${100 / lanes}%)`,
                 };
                 return single
-                  ? <div key={o.activity.id} className={`tg-band ${o.level ?? 'todo'}`} style={box} title={status(o)}><b>{o.activity.name}</b><span>{t.startTime}–{t.endTime ?? ''}</span></div>
-                  : <i key={o.activity.id} className={`tg-rail ${o.level ?? 'todo'}`} style={{ ...box, left: `calc(${lane * 5}px)`, width: 4 }} title={status(o)} />;
+                  ? <div key={`${o.activity.id}-${i}`} className={`tg-band ${o.level ?? 'todo'}`} style={box} title={status(o)}><b>{o.activity.name}</b><span>{t.startTime}–{t.endTime ?? ''}</span></div>
+                  : <i key={`${o.activity.id}-${i}`} className={`tg-rail ${o.level ?? 'todo'}`} style={{ ...box, left: `calc(${lane * 5}px)`, width: 4 }} title={status(o)} />;
               })}
               {/* dia lotado (sem 1 min de folga em lugar nenhum): não desenha, pra não inventar um horário falso que ia cair em cima de outra coisa — o objetivo continua visível na ficha acima */}
               {assignLanes(planGoals(dayOcc, placed, weekday).filter(({ p }) => p.fitted).map(({ o, p }) => ({ o, p, s: p.start, e: p.end }))).map(({ o, p, s, e, lane, lanes }) => {

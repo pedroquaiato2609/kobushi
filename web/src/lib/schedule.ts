@@ -1,5 +1,5 @@
 // Encaixe dos objetivos sem horário fixo no calendário. Função pura (sem React): espelha api/src/domain/schedule.ts.
-import type { Activity, Period } from '../api/types';
+import type { Activity, Period, TimeBlock } from '../api/types';
 
 export const PERIOD_WINDOW: Record<Period, readonly [number, number]> = { morning: [360, 720], afternoon: [720, 1080], night: [1080, 1380] };
 export const FREE_WINDOW = [360, 1380] as const; // 06:00–23:00
@@ -17,12 +17,12 @@ export function windowFor(a: Windowed): [number, number] | null {
   return end - start >= Math.min(a.durationMin, 5) && end > start ? [start, end] : null;
 }
 
-type Timed = Pick<Activity, 'startTime' | 'endTime' | 'weekdayTimes'>;
+type Timed = Pick<Activity, 'blocks' | 'weekdayBlocks'>;
 
-/** Horário de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão o horário padrão. */
-export function effectiveTime(a: Timed, weekday: number): { startTime: string | null; endTime: string | null } {
-  const override = a.weekdayTimes.find((w) => w.weekday === weekday);
-  return override ? { startTime: override.startTime, endTime: override.endTime } : { startTime: a.startTime, endTime: a.endTime };
+/** Bloco(s) de uma atividade "fixed" NUM dia específico: usa a exceção desse dia, senão os blocos padrão. */
+export function effectiveBlocks(a: Timed, weekday: number): TimeBlock[] {
+  const override = a.weekdayBlocks.find((w) => w.weekday === weekday);
+  return override ? override.blocks : a.blocks;
 }
 
 export interface Busy { start: number; end: number }

@@ -1,5 +1,6 @@
 // Assistente proativo: transforma sinais reais (prazos, conflitos, atrasos, mudanças de padrão) em sugestões moderadas.
 import { addDays, toMinutes, weekdayOf } from '../domain/dates';
+import { blocksLabel, effectiveBlocks } from '../domain/schedule';
 import type { Proactivity, Severity, SuggestionType } from '../domain/constants';
 import type { Activity, CalendarEvent, Execution } from '../domain/entities';
 import type { Insight, InsightAction } from './finance/types';
@@ -51,14 +52,17 @@ export function detect(s: Signals): Candidate[] {
 
   // 1) Obrigação de amanhã sem lembrete (só à tarde/noite, quando "amanhã" é relevante)
   if (s.nowMinutes >= 16 * 60) {
-    for (const a of s.activities.filter((x) => applies(x, tomorrow) && x.kind === 'obligation' && x.timeMode === 'fixed' && x.startTime && !x.remindTime)) {
-      const early = hhmm(Math.max(0, toMinutes(a.startTime as string) - 30));
+    for (const a of s.activities.filter((x) => applies(x, tomorrow) && x.kind === 'obligation' && x.timeMode === 'fixed' && !x.remindTime)) {
+      const blocks = effectiveBlocks(a, weekdayOf(tomorrow));
+      if (blocks.length === 0) continue;
+      const label = blocksLabel(blocks);
+      const early = hhmm(Math.max(0, toMinutes(blocks[0].startTime) - 30));
       out.push({
         key: `remind:${a.id}:${tomorrow}`, type: 'routine', severity: 'attention', expiresAt: endOfDay(tomorrow),
-        title: `Você tem "${a.name}" amanhã às ${a.startTime}`,
+        title: `Você tem "${a.name}" amanhã às ${label}`,
         reason: 'Essa obrigação não tem lembrete. Quer receber um aviso antes?',
-        data: [`Obrigação: ${a.name}, amanhã (${br(tomorrow)}) às ${a.startTime}`, 'Lembrete diário: não configurado'],
-        actions: [{ kind: 'chat', label: 'Criar lembrete', prompt: `Crie um lembrete diário para "${a.name}" às ${early} (30 minutos antes), no sino e no celular.` }],
+        data: [`Obrigação: ${a.name}, amanhã (${br(tomorrow)}) às ${label}`, 'Lembrete diário: não configurado'],
+        actions: [{ kind: 'chat', label: 'Criar lembrete', prompt: `Crie um lembrete diário para "${a.name}" às ${early} (30 minutos antes do primeiro horário), no sino e no celular.` }],
       });
     }
   }
@@ -68,7 +72,7 @@ export function detect(s: Signals): Candidate[] {
   if (target) {
     const busy: [number, number][] = [];
     for (const e of s.events) if (e.start.slice(0, 10) === target) busy.push([minutesOf(e.start), e.end.slice(0, 10) === target ? minutesOf(e.end) : 24 * 60]);
-    for (const a of s.activities) if (applies(a, target) && a.timeMode === 'fixed' && a.startTime && a.endTime) busy.push([toMinutes(a.startTime), toMinutes(a.endTime)]);
+    for (const a of s.activities) if (applies(a, target) && a.timeMode === 'fixed') for (const b of effectiveBlocks(a, weekdayOf(target))) if (b.endTime) busy.push([toMinutes(b.startTime), toMinutes(b.endTime)]);
     const total = unionMinutes(busy.map(([a, b]) => [a, b] as [number, number]));
     const afternoon = unionMinutes(busy.map(([a, b]) => clip(a, b, 12 * 60, 18 * 60)).filter((x): x is [number, number] => x !== null));
     const flexible = s.activities.filter((a) => applies(a, target) && a.timeMode !== 'fixed' && a.kind !== 'obligation');
