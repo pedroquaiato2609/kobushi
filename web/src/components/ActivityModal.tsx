@@ -3,7 +3,7 @@ import { api } from '../api/client';
 import { useAction } from '../api/hooks';
 import type { Activity, ActivityKind, NotifyChannel, Period, TimeBlock, TimeMode, WeekdayBlocks } from '../api/types';
 import { KIND_LABEL, PERIOD_LABEL, WEEKDAY_SHORT } from '../lib/labels';
-import { toHHmm, windowFor } from '../lib/schedule';
+import { toHHmm, toMin, windowFor } from '../lib/schedule';
 import { ChannelChecks } from './ChannelChecks';
 import { useConfirm } from './ConfirmProvider';
 import { Icon } from './Icon';
@@ -11,12 +11,14 @@ import { ErrorText, Field, Modal } from './ui';
 
 type BlockRow = { startTime: string; endTime: string };
 const NEW_BLOCK: BlockRow = { startTime: '08:00', endTime: '' };
+type RemindMode = 'none' | 'fixed' | 'before';
+const REMIND_BEFORE_OPTIONS = [5, 10, 15, 30, 60] as const;
 
 interface Form {
   name: string; kind: ActivityKind; timeMode: TimeMode; period: Period;
   blocks: BlockRow[]; perDay: boolean; dayBlocks: Record<number, BlockRow[]>;
   purpose: string; principle: string; minDesc: string; idealDesc: string; maxDesc: string; weekdays: number[]; active: boolean;
-  remindTime: string; remindChannels: NotifyChannel[];
+  remindMode: RemindMode; remindTime: string; remindBeforeMin: (typeof REMIND_BEFORE_OPTIONS)[number]; remindChannels: NotifyChannel[];
   notBefore: string; notAfter: string; durationMin: number;
 }
 
@@ -32,7 +34,8 @@ function initial(a?: Activity): Form {
     purpose: a?.purpose ?? '', principle: a?.principle ?? '',
     minDesc: a?.minDesc ?? '', idealDesc: a?.idealDesc ?? '', maxDesc: a?.maxDesc ?? '',
     weekdays: a?.weekdays ?? [0, 1, 2, 3, 4, 5, 6], active: a?.active ?? true,
-    remindTime: a?.remindTime ?? '', remindChannels: a?.remindChannels ?? [],
+    remindMode: a?.remindMinutes != null ? 'before' : a?.remindTime ? 'fixed' : 'none',
+    remindTime: a?.remindTime ?? '', remindBeforeMin: a?.remindMinutes ?? 15, remindChannels: a?.remindChannels ?? [],
     notBefore: a?.notBefore ?? '', notAfter: a?.notAfter ?? '', durationMin: a?.durationMin ?? 60,
   };
 }
@@ -61,7 +64,9 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
     weekdayBlocks,
     purpose: f.purpose, principle: f.principle, minDesc: f.minDesc, idealDesc: f.idealDesc, maxDesc: f.maxDesc,
     weekdays: f.weekdays, active: f.active,
-    remindTime: f.remindTime || null, remindChannels: f.remindTime ? f.remindChannels : [],
+    remindTime: f.remindMode === 'fixed' ? (f.remindTime || null) : null,
+    remindMinutes: f.remindMode === 'before' ? f.remindBeforeMin : null,
+    remindChannels: f.remindMode !== 'none' ? f.remindChannels : [],
     notBefore: flexible && f.notBefore ? f.notBefore : null, notAfter: flexible && f.notAfter ? f.notAfter : null, durationMin: f.durationMin,
   });
   const submit = () => save.mutate(payload());
@@ -88,6 +93,11 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
   const addDayBlock = (d: number) => setF((prev) => ({ ...prev, dayBlocks: { ...prev.dayBlocks, [d]: [...(prev.dayBlocks[d] ?? prev.blocks), NEW_BLOCK] } }));
   const removeDayBlock = (d: number, i: number) =>
     setF((prev) => ({ ...prev, dayBlocks: { ...prev.dayBlocks, [d]: (prev.dayBlocks[d] ?? prev.blocks).filter((_, j) => j !== i) } }));
+
+  // prévia do "X min antes": usa o 1º dia selecionado como exemplo, já que o horário pode variar por dia
+  const previewDay = f.weekdays[0];
+  const previewStart = previewDay === undefined ? undefined : (f.perDay ? dayBlocksFor(previewDay) : f.blocks)[0]?.startTime;
+  const previewTime = previewStart ? toHHmm(Math.max(0, toMin(previewStart) - f.remindBeforeMin)) : null;
 
   return (
     <Modal
@@ -231,13 +241,35 @@ export function ActivityModal({ activity, onClose }: { activity?: Activity; onCl
 
       <fieldset className="field remind-box">
         <legend className="field-label">Lembrete diário</legend>
-        <div className="row">
-          <Field label="Avisar às (opcional)">
-            <input type="time" value={f.remindTime} onChange={(e) => set('remindTime', e.target.value)} />
-          </Field>
-          <p className="hint">Só avisa nos dias em que a atividade se aplica e se você ainda não registrou o dia.</p>
-        </div>
-        {f.remindTime && <ChannelChecks value={f.remindChannels} onChange={(v) => set('remindChannels', v)} />}
+        <p className="hint">Só avisa nos dias em que a atividade se aplica e se você ainda não registrou o dia.</p>
+
+        {f.timeMode === 'fixed' ? (
+          <div className="btn-group" role="radiogroup" aria-label="Tipo de lembrete">
+            <button type="button" className="btn" aria-pressed={f.remindMode === 'none'} onClick={() => set('remindMode', 'none')}>Sem lembrete</button>
+            <button type="button" className="btn" aria-pressed={f.remindMode === 'fixed'} onClick={() => set('remindMode', 'fixed')}>Horário fixo</button>
+            <button type="button" className="btn" aria-pressed={f.remindMode === 'before'} onClick={() => set('remindMode', 'before')}>Antes do horário</button>
+          </div>
+        ) : (
+          <label className="check">
+            <input type="checkbox" checked={f.remindMode === 'fixed'} onChange={(e) => set('remindMode', e.target.checked ? 'fixed' : 'none')} />
+            Avisar num horário fixo
+          </label>
+        )}
+
+        {f.remindMode === 'fixed' && (
+          <Field label="Avisar às"><input type="time" value={f.remindTime} onChange={(e) => set('remindTime', e.target.value)} required /></Field>
+        )}
+        {f.remindMode === 'before' && (
+          <>
+            <Field label="Quanto antes?">
+              <select value={f.remindBeforeMin} onChange={(e) => set('remindBeforeMin', Number(e.target.value) as Form['remindBeforeMin'])}>
+                {REMIND_BEFORE_OPTIONS.map((m) => <option key={m} value={m}>{m < 60 ? `${m} minutos antes` : '1 hora antes'}</option>)}
+              </select>
+            </Field>
+            <p className="hint">Acompanha sozinho o horário de cada dia{f.perDay ? ' (mesmo variando dia a dia)' : ''}.{previewTime && previewDay !== undefined ? ` Ex.: ${WEEKDAY_SHORT[previewDay]} seria às ${previewTime}.` : ''}</p>
+          </>
+        )}
+        {f.remindMode !== 'none' && <ChannelChecks value={f.remindChannels} onChange={(v) => set('remindChannels', v)} />}
       </fieldset>
 
       <label className="check">

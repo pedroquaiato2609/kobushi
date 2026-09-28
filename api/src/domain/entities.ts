@@ -24,7 +24,8 @@ export interface Activity {
   maxDesc: string;
   weekdays: number[]; // 0 = domingo
   active: boolean;
-  remindTime: string | null; // 'HH:mm' — lembrete diário (some se já registrou o dia)
+  remindTime: string | null; // 'HH:mm' — lembrete diário em horário fixo (some se já registrou o dia)
+  remindMinutes: number | null; // alternativa: X minutos antes do 1º bloco efetivo do dia (só timeMode = fixed)
   remindChannels: NotifyChannel[];
   createdAt: Date;
   updatedAt: Date;

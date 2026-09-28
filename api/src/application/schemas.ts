@@ -39,7 +39,8 @@ export const activityCreateSchema = z.object({
   maxDesc: z.string().max(200).optional(),
   weekdays: z.array(z.number().int().min(0).max(6)).min(1).optional().describe('dias da semana (0 = domingo). Padrão: todos'),
   active: z.boolean().optional(),
-  remindTime: timeStr.nullable().optional().describe('horário do lembrete diário (HH:mm); null desliga'),
+  remindTime: timeStr.nullable().optional().describe('horário fixo do lembrete diário (HH:mm); null desliga. Alternativa a remindMinutes (use só um dos dois)'),
+  remindMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).nullable().optional().describe('alternativa a remindTime: avisa X minutos antes do 1º bloco de horário efetivo do dia (só faz sentido com timeMode = fixed, já que acompanha um horário que pode variar por dia)'),
   remindChannels: channels.optional(),
 });
 export const activityUpdateSchema = activityCreateSchema.partial();

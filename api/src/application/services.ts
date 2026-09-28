@@ -44,6 +44,7 @@ export class ActivityService {
       weekdays: input.weekdays ?? [0, 1, 2, 3, 4, 5, 6],
       active: input.active ?? true,
       remindTime: input.remindTime ?? null,
+      remindMinutes: input.remindMinutes ?? null,
       remindChannels: input.remindChannels ?? [],
     });
     return this.repo.create(data);
@@ -52,6 +53,9 @@ export class ActivityService {
   async update(id: string, patch: ActivityUpdateInput): Promise<Activity> {
     const current = await this.get(id);
     const clean = stripUndefined(patch) as Partial<NewActivity>;
+    // são alternativas: um PATCH que só mexe num dos dois quer dizer "troquei de tipo de lembrete" — limpa o outro
+    if ('remindTime' in clean && !('remindMinutes' in clean)) clean.remindMinutes = null;
+    if ('remindMinutes' in clean && !('remindTime' in clean)) clean.remindTime = null;
     // valida a combinação final (atual + patch), mas grava só o patch
     const merged = this.normalize({ ...current, ...clean } as NewActivity);
     if (['timeMode', 'period', 'blocks', 'weekdays', 'weekdayBlocks'].some((k) => k in clean)) {
@@ -59,6 +63,11 @@ export class ActivityService {
       clean.period = merged.period;
       clean.blocks = merged.blocks;
       clean.weekdayBlocks = merged.weekdayBlocks;
+    }
+    if (['timeMode', 'remindTime', 'remindMinutes'].some((k) => k in clean)) {
+      // remindTime e remindMinutes são alternativas (só um vale por vez), e remindMinutes só em horário definido
+      clean.remindTime = merged.remindTime;
+      clean.remindMinutes = merged.remindMinutes;
     }
     // mudou quando/onde a atividade pode cair: a sugestão da IA deixa de valer (editar outros campos não apaga)
     if (['timeMode', 'period', 'notBefore', 'notAfter', 'durationMin'].some((k) => k in clean)) {
@@ -103,12 +112,15 @@ export class ActivityService {
     const needsDefault = a.timeMode === 'fixed' && a.weekdays.some((d) => !coveredDays.has(d));
     if (needsDefault && a.blocks.length === 0) throw new ValidationError('Atividade com horário definido precisa de um horário padrão (ou de uma exceção pra cada dia selecionado).');
     const blocks = flexible ? [] : this.validateBlocks(a.blocks, 'blocks');
+    // remindMinutes só em horário definido (acompanha o bloco do dia); e é alternativa a remindTime, nunca os dois juntos
+    const remindMinutes = a.timeMode === 'fixed' ? a.remindMinutes : null;
     return {
       ...a,
       notBefore: flexible ? a.notBefore : null, notAfter: flexible ? a.notAfter : null,
       suggestedStart: flexible ? a.suggestedStart : null,
       period: a.timeMode === 'period' ? a.period : null,
       blocks, weekdayBlocks,
+      remindMinutes, remindTime: remindMinutes != null ? null : a.remindTime,
     };
   }
 }

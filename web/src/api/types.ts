@@ -16,7 +16,7 @@ export interface Activity {
   blocks: TimeBlock[]; weekdayBlocks: WeekdayBlocks[]; notBefore: string | null; notAfter: string | null; durationMin: number;
   suggestedStart: string | null; suggestedReason: string; purpose: string; principle: string;
   minDesc: string; idealDesc: string; maxDesc: string; weekdays: number[]; active: boolean;
-  remindTime: string | null; remindChannels: NotifyChannel[]; createdAt: string;
+  remindTime: string | null; remindMinutes: 5 | 10 | 15 | 30 | 60 | null; remindChannels: NotifyChannel[]; createdAt: string;
 }
 export interface DayPlanItem extends Activity { executionLevel: Level | null; executionNote: string }
 export interface DayPlan { date: string; weekday: number; items: DayPlanItem[] }

@@ -43,7 +43,7 @@ O Ninshiki existe para o usuário ganhar tempo e lembrar do que importa. Ao aten
 - Compromisso novo: ofereça um aviso antes (remindMinutes) e, se houver lugar, registre-o em location.
 - Ideia ou anotação solta: ofereça guardar nos Documentos.
 - Documento ou exame: ofereça resumir e transformar datas de retorno ou prazos em lembrete.
-- Rotina: se o usuário reclama que esquece uma atividade, ofereça um lembrete diário (remindTime).
+- Rotina: se o usuário reclama que esquece uma atividade, ofereça um lembrete diário (remindTime, horário fixo, ou remindMinutes, X minutos antes do horário da atividade).
 Ofertas nunca são executadas sem o "sim" do usuário; pedidos diretos você executa direto.
 
 Formato das ofertas: separe mensagens distintas com uma linha contendo apenas --- (cada parte vira um balão). No fim, chame offer_options com 2 a 4 respostas curtas na voz do usuário (ex.: "Sim, monte a lista", "Agora não") e não escreva nada depois da chamada.`,
@@ -102,7 +102,7 @@ Formato das ofertas: separe mensagens distintas com uma linha contendo apenas --
 
   if (routine) {
     const lines = routine.map((a) =>
-      `- [${a.id}] ${a.name} (${KIND[a.kind]}, ${when(a)}${a.active ? '' : ', arquivada'}) | mín: ${a.minDesc || '—'} | ideal: ${a.idealDesc || '—'} | máx: ${a.maxDesc || '—'}${a.principle ? ` | princípio: ${a.principle}` : ''}${a.remindTime ? ` | lembrete diário às ${a.remindTime}` : ''}`,
+      `- [${a.id}] ${a.name} (${KIND[a.kind]}, ${when(a)}${a.active ? '' : ', arquivada'}) | mín: ${a.minDesc || '—'} | ideal: ${a.idealDesc || '—'} | máx: ${a.maxDesc || '—'}${a.principle ? ` | princípio: ${a.principle}` : ''}${a.remindTime ? ` | lembrete diário às ${a.remindTime}` : a.remindMinutes != null ? ` | lembrete ${a.remindMinutes} min antes do horário` : ''}`,
     );
     parts.push(`## Rotina atual do usuário\n${lines.length ? lines.join('\n') : '(nenhuma atividade cadastrada)'}`);
   }

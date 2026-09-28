@@ -30,7 +30,7 @@ function world(over: { reminders?: Reminder[]; activities?: Partial<Activity>[];
       due: async (local: string) => (over.reminders ?? []).filter((r) => r.remindAt <= local && r.status === 'pending'),
       update: async (id: string, patch: any) => { updates.push({ id, ...patch }); return null; },
     } as any,
-    activities: { list: async () => (over.activities ?? []).map((a) => ({ active: true, weekdays: [0, 1, 2, 3, 4, 5, 6], remindChannels: [], minDesc: '', ...a })) } as any,
+    activities: { list: async () => (over.activities ?? []).map((a) => ({ active: true, weekdays: [0, 1, 2, 3, 4, 5, 6], remindChannels: [], minDesc: '', blocks: [], weekdayBlocks: [], ...a })) } as any,
     executions: { listRange: async () => (over.done ?? []).map((activityId) => ({ activityId })) } as any,
     events: { reminderDue: async () => (over.events ?? []).map((e) => ({ location: '', remindChannels: [], ...e })) } as any,
     log: { claim: async (k: string) => (claimed.has(k) ? false : (claimed.add(k), true)) } as any,
@@ -62,6 +62,27 @@ test('aviso de atividade: só dentro da janela, nunca se já registrou e uma vez
   await w.scheduler.tick(NOW);
   assert.deepEqual(w.inbox, ['Hora de: Leitura']);
   assert.deepEqual(w.sent.map((s) => s.channel), ['push']);
+});
+
+test('aviso de atividade por remindMinutes: acompanha o bloco EFETIVO do dia (não o padrão), e respeita a janela', async () => {
+  const base = { name: 'Trabalho', minDesc: '', remindChannels: ['push'] as any, timeMode: 'fixed' as const };
+  const w = world({ activities: [
+    // segunda (weekday 1, hoje): exceção às 10:00–11:00, 30 min antes = 09:30 = agora → dispara
+    { id: 'today', remindMinutes: 30, blocks: [{ startTime: '20:00', endTime: '21:00' }], weekdayBlocks: [{ weekday: 1, blocks: [{ startTime: '10:00', endTime: '11:00' }] }], ...base },
+    // sem exceção pra segunda: usa o padrão (20:00), longe demais de agora → não dispara
+    { id: 'other-day', remindMinutes: 30, blocks: [{ startTime: '20:00', endTime: '21:00' }], weekdayBlocks: [{ weekday: 2, blocks: [{ startTime: '10:00', endTime: '11:00' }] }], ...base, name: 'Outro dia' },
+  ] });
+  await w.scheduler.tick(NOW);
+  assert.deepEqual(w.inbox, ['Hora de: Trabalho']);
+});
+
+test('remindTime e remindMinutes nunca disparam os dois juntos pra mesma atividade (mutuamente exclusivos na validação)', async () => {
+  const w = world({ activities: [
+    { id: 'a', remindTime: '09:30', remindMinutes: 30, timeMode: 'fixed', blocks: [{ startTime: '10:00', endTime: null }], name: 'Dupla' },
+  ] });
+  await w.scheduler.tick(NOW);
+  // o agendador em si respeita o que vier salvo; aqui as duas condições levam ao mesmo horário (09:30), então dispara uma vez só
+  assert.equal(w.inbox.length, 1);
 });
 
 test('aviso de evento inclui o local e não repete', async () => {

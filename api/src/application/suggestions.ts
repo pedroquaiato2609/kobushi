@@ -52,7 +52,7 @@ export function detect(s: Signals): Candidate[] {
 
   // 1) Obrigação de amanhã sem lembrete (só à tarde/noite, quando "amanhã" é relevante)
   if (s.nowMinutes >= 16 * 60) {
-    for (const a of s.activities.filter((x) => applies(x, tomorrow) && x.kind === 'obligation' && x.timeMode === 'fixed' && !x.remindTime)) {
+    for (const a of s.activities.filter((x) => applies(x, tomorrow) && x.kind === 'obligation' && x.timeMode === 'fixed' && !x.remindTime && x.remindMinutes == null)) {
       const blocks = effectiveBlocks(a, weekdayOf(tomorrow));
       if (blocks.length === 0) continue;
       const label = blocksLabel(blocks);

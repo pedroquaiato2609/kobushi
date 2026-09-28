@@ -1,6 +1,7 @@
 import { addDays } from 'date-fns';
 import type { Activity, CalendarEvent, NotifyChannel, Reminder } from '../api/types';
 import { parseTs, parseYmd, ts, ymd } from './dates';
+import { effectiveBlocks, toHHmm, toMin } from './schedule';
 
 export type ReminderKind = 'reminder' | 'activity' | 'event';
 export interface ReminderItem {
@@ -18,6 +19,14 @@ const createdDay = (a: Activity) => ymd(new Date(a.createdAt));
 export function eventRemindAt(ev: CalendarEvent): string | null {
   if (ev.remindMinutes === null || ev.remindMinutes === undefined) return null;
   return ts(new Date(parseTs(ev.start).getTime() - ev.remindMinutes * 60_000));
+}
+
+/** Horário do aviso de uma atividade NUM dia: fixo (remindTime), ou calculado a partir do 1º bloco efetivo do dia (remindMinutes). */
+export function activityRemindAt(a: Activity, day: string): string | null {
+  if (a.remindTime) return `${day}T${a.remindTime}`;
+  if (a.remindMinutes == null) return null;
+  const first = effectiveBlocks(a, weekday(day))[0];
+  return first ? `${day}T${toHHmm(Math.max(0, toMin(first.startTime) - a.remindMinutes))}` : null;
 }
 
 const fromReminder = (r: Reminder, at: string): ReminderItem => ({
@@ -41,7 +50,9 @@ export function remindersOnDay(day: string, reminders: Reminder[], activities: A
     if (hit) out.push(fromReminder(r, `${day}${r.remindAt.slice(10)}`));
   }
   for (const a of activities) {
-    if (a.active && a.remindTime && a.weekdays.includes(weekday(day)) && createdDay(a) <= day) out.push(fromActivity(a, `${day}T${a.remindTime}`));
+    if (!a.active || !a.weekdays.includes(weekday(day)) || createdDay(a) > day) continue;
+    const at = activityRemindAt(a, day);
+    if (at) out.push(fromActivity(a, at));
   }
   for (const e of events) {
     const at = eventRemindAt(e);
@@ -55,11 +66,12 @@ export function upcomingReminders(reminders: Reminder[], activities: Activity[],
   const nowTs = ts(now);
   const out: ReminderItem[] = reminders.map((r) => fromReminder(r, r.remindAt));
   for (const a of activities) {
-    if (!a.active || !a.remindTime) continue;
+    if (!a.active || (!a.remindTime && a.remindMinutes == null)) continue;
     for (let i = 0; i < 8; i++) {
       const day = ymd(addDays(now, i));
-      const at = `${day}T${a.remindTime}`;
-      if (a.weekdays.includes(weekday(day)) && at >= nowTs) { out.push(fromActivity(a, at)); break; }
+      if (!a.weekdays.includes(weekday(day))) continue;
+      const at = activityRemindAt(a, day);
+      if (at && at >= nowTs) { out.push(fromActivity(a, at)); break; }
     }
   }
   for (const e of events) {

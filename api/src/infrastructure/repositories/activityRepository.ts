@@ -4,7 +4,7 @@ import type { Db } from '../db/pool';
 import { withTx } from '../db/pool';
 import { hhmm, mapRow, updateRow } from '../db/util';
 
-const FIELDS = ['name', 'kind', 'timeMode', 'period', 'notBefore', 'notAfter', 'durationMin', 'suggestedStart', 'suggestedReason', 'purpose', 'principle', 'minDesc', 'idealDesc', 'maxDesc', 'weekdays', 'active', 'remindTime', 'remindChannels'] as const;
+const FIELDS = ['name', 'kind', 'timeMode', 'period', 'notBefore', 'notAfter', 'durationMin', 'suggestedStart', 'suggestedReason', 'purpose', 'principle', 'minDesc', 'idealDesc', 'maxDesc', 'weekdays', 'active', 'remindTime', 'remindMinutes', 'remindChannels'] as const;
 
 export const toActivity = (row: Record<string, any>, blocks: TimeBlock[] = [], weekdayBlocks: WeekdayBlocks[] = []): Activity => {
   const a = mapRow<Activity>(row) as Activity;
@@ -58,9 +58,9 @@ export class PgActivityRepository implements ActivityRepository {
   async create(d: NewActivity) {
     return withTx(async (tx) => {
       const { rows } = await tx.query(
-        `INSERT INTO activities (name, kind, time_mode, period, not_before, not_after, duration_min, suggested_start, suggested_reason, purpose, principle, min_desc, ideal_desc, max_desc, weekdays, active, remind_time, remind_channels)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
-        [d.name, d.kind, d.timeMode, d.period, d.notBefore, d.notAfter, d.durationMin, d.suggestedStart, d.suggestedReason, d.purpose, d.principle, d.minDesc, d.idealDesc, d.maxDesc, d.weekdays, d.active, d.remindTime, d.remindChannels],
+        `INSERT INTO activities (name, kind, time_mode, period, not_before, not_after, duration_min, suggested_start, suggested_reason, purpose, principle, min_desc, ideal_desc, max_desc, weekdays, active, remind_time, remind_minutes, remind_channels)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        [d.name, d.kind, d.timeMode, d.period, d.notBefore, d.notAfter, d.durationMin, d.suggestedStart, d.suggestedReason, d.purpose, d.principle, d.minDesc, d.idealDesc, d.maxDesc, d.weekdays, d.active, d.remindTime, d.remindMinutes, d.remindChannels],
       );
       await replaceTimeBlocks(tx, rows[0].id, d.blocks, d.weekdayBlocks);
       return toActivity(rows[0], d.blocks, d.weekdayBlocks);

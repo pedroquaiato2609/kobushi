@@ -2,6 +2,7 @@
 import type { NotifyChannel } from '../domain/constants';
 import { nextOccurrence, nowLocalTs, toMinutes, weekdayOf } from '../domain/dates';
 import { NotFoundError } from '../domain/errors';
+import { effectiveBlocks } from '../domain/schedule';
 import type { AppNotification, Reminder } from '../domain/entities';
 import type {
   ActivityRepository, EventRepository, ExecutionRepository, NotificationLogRepository, NotificationRepository, ReminderRepository,
@@ -106,12 +107,21 @@ export class ReminderScheduler {
       else await reminders.update(r.id, { remindAt: nextOccurrence(r.remindAt, r.repeat, local), lastFiredAt: local });
     }
 
-    // 2) atividades com horário de aviso: só se hoje se aplica, ainda não foi registrada e a janela (2 h) não passou
-    const due = (await activities.list()).filter((a) => a.active && a.remindTime && a.weekdays.includes(weekdayOf(today)));
+    // 2) atividades com horário de aviso: só se hoje se aplica, ainda não foi registrada e a janela (2 h) não passou.
+    // remindTime = horário fixo; remindMinutes = alternativa que acompanha o 1º bloco efetivo do dia (varia por dia).
+    const weekdayToday = weekdayOf(today);
+    const due = (await activities.list()).filter((a) => a.active && (a.remindTime || a.remindMinutes != null) && a.weekdays.includes(weekdayToday));
     if (due.length > 0) {
       const done = new Set((await executions.listRange(today, today)).map((e) => e.activityId));
       for (const a of due) {
-        const at = toMinutes(a.remindTime as string);
+        let at: number;
+        if (a.remindMinutes != null) {
+          const firstBlock = effectiveBlocks(a, weekdayToday)[0];
+          if (!firstBlock) continue;
+          at = toMinutes(firstBlock.startTime) - a.remindMinutes;
+        } else {
+          at = toMinutes(a.remindTime as string);
+        }
         if (minutes < at || minutes - at > 120 || done.has(a.id)) continue;
         if (!(await log.claim(`activity:${a.id}:${today}`))) continue;
         await notifier.notify({

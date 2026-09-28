@@ -72,7 +72,7 @@ export default function ActivitiesPage() {
     .filter((a) => !q.trim() || a.name.toLowerCase().includes(q.trim().toLowerCase()));
 
   const active = all.filter((a) => a.active);
-  const withReminder = active.filter((a) => a.remindTime).length;
+  const withReminder = active.filter((a) => a.remindTime || a.remindMinutes != null).length;
   const best = [...rows.values()].sort((a, b) => b.streak - a.streak)[0];
   const doneToday = (plan.data?.items ?? []).filter((i) => i.executionLevel).length;
 
@@ -136,8 +136,11 @@ export default function ActivitiesPage() {
                 </div>
               )}
 
-              {a.remindTime && (
-                <p className="act-remind"><Icon name="bell" size={14} /> Aviso às {a.remindTime}{a.remindChannels.length ? ` · ${a.remindChannels.map((c) => CHANNEL_LABEL[c]).join(', ')}` : ''}</p>
+              {(a.remindTime || a.remindMinutes != null) && (
+                <p className="act-remind">
+                  <Icon name="bell" size={14} /> {a.remindTime ? `Aviso às ${a.remindTime}` : `Aviso ${a.remindMinutes} min antes do horário`}
+                  {a.remindChannels.length ? ` · ${a.remindChannels.map((c) => CHANNEL_LABEL[c]).join(', ')}` : ''}
+                </p>
               )}
 
               {a.active && appliesToday && (

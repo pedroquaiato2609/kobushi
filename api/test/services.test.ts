@@ -113,6 +113,21 @@ test('horário padrão só é obrigatório se sobrar dia sem exceção própria'
   }), ValidationError);
 });
 
+test('lembrete: remindMinutes e remindTime são alternativas (definir um zera o outro), e remindMinutes só em horário definido', async () => {
+  const svc = new ActivityService(memoryActivities());
+  const a = await svc.create({ name: 'Trabalho', kind: 'obligation', timeMode: 'fixed', blocks: [{ startTime: '08:00', endTime: null }], remindTime: '07:00', remindMinutes: 15 });
+  assert.equal(a.remindMinutes, 15);
+  assert.equal(a.remindTime, null); // remindMinutes venceu
+
+  const b = await svc.update(a.id, { remindTime: '07:30' }); // volta pro horário fixo
+  assert.equal(b.remindTime, '07:30');
+  assert.equal(b.remindMinutes, null);
+
+  // remindMinutes não faz sentido fora de horário definido
+  const c = await svc.create({ name: 'Leitura', kind: 'goal', timeMode: 'free', remindMinutes: 15 });
+  assert.equal(c.remindMinutes, null);
+});
+
 function statsService(activities: Activity[], executions: Execution[]) {
   const execRepo = { listRange: async () => executions } as unknown as ExecutionRepository;
   const medRepo = { list: async () => [] } as unknown as MeditationRepository;
