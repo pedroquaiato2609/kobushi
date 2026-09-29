@@ -21,6 +21,9 @@ export function CommuteModal({ commute, onClose }: { commute?: Commute; onClose:
   const [name, setName] = useState(commute?.name ?? '');
   const [activityId, setActivityId] = useState(commute?.activityId ?? '');
   const [direction, setDirection] = useState<CommuteDirection>(commute?.direction ?? 'before');
+  // Só faz sentido ao criar (não editar): gera de uma vez os dois trechos (ida e volta) da mesma atividade,
+  // sem precisar abrir o modal duas vezes. Continua dando pra criar só um dos dois quando desmarcado.
+  const [bothDirections, setBothDirections] = useState(false);
   const [durationMin, setDurationMin] = useState(commute?.durationMin ?? 30);
   const [active, setActive] = useState(commute?.active ?? true);
   const [remindMode, setRemindMode] = useState<RemindMode>(commute?.remindMinutes != null ? 'before' : commute?.remindTime ? 'fixed' : 'none');
@@ -31,25 +34,33 @@ export function CommuteModal({ commute, onClose }: { commute?: Commute; onClose:
   const activity = (activities.data ?? []).find((a) => a.id === activityId);
   const preview = useMemo(() => {
     if (!activity) return [];
-    return activity.weekdays.map((d) => ({ d, block: commuteBlock(activity, d, direction, durationMin) }));
-  }, [activity, direction, durationMin]);
+    const dirs: CommuteDirection[] = bothDirections ? ['before', 'after'] : [direction];
+    return dirs.map((dir) => ({
+      dir, days: activity.weekdays.map((d) => ({ d, block: commuteBlock(activity, d, dir, durationMin) })),
+    }));
+  }, [activity, direction, durationMin, bothDirections]);
 
-  const payload = () => ({
-    name: name.trim(), activityId, direction, durationMin, active,
+  const buildPayload = (dir: CommuteDirection, label: string) => ({
+    name: label, activityId, direction: dir, durationMin, active,
     remindTime: remindMode === 'fixed' ? (remindTime || null) : null,
     remindMinutes: remindMode === 'before' ? remindBeforeMin : null,
     remindChannels: remindMode !== 'none' ? remindChannels : [],
   });
-  const save = useAction(
-    (p: Record<string, unknown>) => (commute ? api.patch(`/commutes/${commute.id}`, p) : api.post('/commutes', p)),
-    onClose,
-  );
+  const save = useAction(async () => {
+    if (commute) return api.patch(`/commutes/${commute.id}`, buildPayload(direction, name.trim()));
+    if (bothDirections) {
+      await api.post('/commutes', buildPayload('before', `${name.trim()} (ida)`));
+      await api.post('/commutes', buildPayload('after', `${name.trim()} (volta)`));
+      return;
+    }
+    return api.post('/commutes', buildPayload(direction, name.trim()));
+  }, onClose);
   const remove = useAction(() => api.del(`/commutes/${commute!.id}`), onClose);
 
   return (
     <Modal
       title={commute ? 'Editar deslocamento' : 'Novo deslocamento'} onClose={onClose}
-      onSubmit={() => save.mutate(payload())}
+      onSubmit={() => save.mutate()}
       footer={
         <>
           {commute && <button type="button" className="btn danger" disabled={remove.isPending} onClick={async () => { if (await confirm(`Apagar "${commute.name}"?`)) remove.mutate(undefined); }}>Apagar</button>}
@@ -59,7 +70,10 @@ export function CommuteModal({ commute, onClose }: { commute?: Commute; onClose:
         </>
       }
     >
-      <Field label="Nome"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex.: Ida à academia" autoFocus required /></Field>
+      <Field label={bothDirections ? 'Nome (base)' : 'Nome'}>
+        <input value={name} onChange={(e) => setName(e.target.value)} placeholder={bothDirections ? 'ex.: academia' : 'ex.: Ida à academia'} autoFocus required />
+      </Field>
+      {bothDirections && <p className="hint">Cria dois deslocamentos: "{name.trim() || '…'} (ida)" e "{name.trim() || '…'} (volta)".</p>}
       <Field label="Atividade âncora">
         <select value={activityId} onChange={(e) => setActivityId(e.target.value)} required>
           <option value="" disabled>Escolha uma atividade com horário definido…</option>
@@ -67,22 +81,37 @@ export function CommuteModal({ commute, onClose }: { commute?: Commute; onClose:
         </select>
         {fixedActivities.length === 0 && <p className="hint">Nenhuma atividade com horário definido ainda. Crie uma em Atividades primeiro (ex.: "Academia", horário definido) e volte aqui.</p>}
       </Field>
+
+      {!commute && (
+        <label className="check">
+          <input type="checkbox" checked={bothDirections} onChange={(e) => setBothDirections(e.target.checked)} />
+          Criar ida e volta juntas (2 deslocamentos de uma vez)
+        </label>
+      )}
+
       <div className="row">
-        <Field label="Direção">
-          <select value={direction} onChange={(e) => setDirection(e.target.value as CommuteDirection)}>
-            {(Object.keys(DIRECTION_LABEL) as CommuteDirection[]).map((d) => <option key={d} value={d}>{DIRECTION_LABEL[d]}</option>)}
-          </select>
+        {!bothDirections && (
+          <Field label="Direção">
+            <select value={direction} onChange={(e) => setDirection(e.target.value as CommuteDirection)}>
+              {(Object.keys(DIRECTION_LABEL) as CommuteDirection[]).map((d) => <option key={d} value={d}>{DIRECTION_LABEL[d]}</option>)}
+            </select>
+          </Field>
+        )}
+        <Field label={bothDirections ? 'Duração de cada trecho (min)' : 'Duração (min)'}>
+          <input type="number" min={5} max={240} value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} required />
         </Field>
-        <Field label="Duração (min)"><input type="number" min={5} max={240} value={durationMin} onChange={(e) => setDurationMin(Number(e.target.value))} required /></Field>
       </div>
       <label className="check">
         <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
         Ativo (desmarque para pausar sem apagar)
       </label>
 
-      {preview.length > 0 && (
-        <p className="hint">Prévia: {preview.map(({ d, block }) => `${WEEKDAY_SHORT[d]} ${block ? `${block.startTime}–${block.endTime}` : 'sem horário'}`).join(', ')}</p>
-      )}
+      {preview.map(({ dir, days }) => (
+        <p className="hint" key={dir}>
+          {bothDirections ? `${DIRECTION_LABEL[dir]}: ` : 'Prévia: '}
+          {days.map(({ d, block }) => `${WEEKDAY_SHORT[d]} ${block ? `${block.startTime}–${block.endTime}` : 'sem horário'}`).join(', ')}
+        </p>
+      ))}
 
       <fieldset className="field remind-box">
         <legend className="field-label">Lembrete</legend>
