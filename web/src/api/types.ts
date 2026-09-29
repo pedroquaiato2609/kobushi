@@ -198,7 +198,7 @@ export interface GymExercise {
 }
 export interface GymLevelTarget { sets: number; reps: number; weight: number }
 /** Meta de cardio por nível: duração em minutos e/ou distância em km (ao menos um definido). */
-export interface GymCardioTarget { durationMin: number | null; distanceKm: number | null }
+export interface GymCardioTarget { durationMin: number | null; distanceKm: number | null; speedKmh: number | null }
 export type GymTargets = Partial<Record<Level, GymLevelTarget>>;
 export type GymCardioTargets = Partial<Record<Level, GymCardioTarget>>;
 export interface GymWorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: GymTargets }

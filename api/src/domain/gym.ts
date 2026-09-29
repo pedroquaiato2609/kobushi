@@ -41,8 +41,8 @@ export const EXERCISE_KINDS = ['strength', 'cardio'] as const; // musculação (
 export type ExerciseKind = (typeof EXERCISE_KINDS)[number];
 
 export interface LevelTarget { sets: number; reps: number; weight: number }
-/** Meta de cardio por nível: duração e/ou distância (ao menos um definido). */
-export interface CardioTarget { durationMin?: number | null; distanceKm?: number | null }
+/** Meta de cardio por nível: duração, distância e/ou velocidade (ao menos um definido). */
+export interface CardioTarget { durationMin?: number | null; distanceKm?: number | null; speedKmh?: number | null }
 export type Targets = Partial<Record<Level, LevelTarget>>;
 export type CardioTargets = Partial<Record<Level, CardioTarget>>;
 
@@ -89,15 +89,20 @@ export function levelReached(set: SetLike, targets: Targets): Level | null {
   return reached;
 }
 
-/** Mesmo princípio de levelReached, mas para cardio: cumpre a meta do nível quando atinge a duração E/OU a distância definidas nele. */
+/**
+ * Mesmo princípio de levelReached, mas para cardio: cumpre a meta do nível quando atinge a duração, a
+ * distância E/OU a velocidade definidas nele (velocidade alcançada = distância ÷ tempo da própria série).
+ */
 export function cardioLevelReached(set: CardioSetLike, targets: CardioTargets): Level | null {
   let reached: Level | null = null;
+  const achievedSpeedKmh = set.durationSeconds > 0 ? set.distanceKm / (set.durationSeconds / 3600) : 0;
   for (const l of ['min', 'ideal', 'max'] as const) {
     const t = targets[l];
-    if (!t || (t.durationMin == null && t.distanceKm == null)) continue;
+    if (!t || (t.durationMin == null && t.distanceKm == null && t.speedKmh == null)) continue;
     const durOk = t.durationMin == null || set.durationSeconds >= t.durationMin * 60;
     const distOk = t.distanceKm == null || set.distanceKm >= t.distanceKm;
-    if (durOk && distOk) reached = l;
+    const speedOk = t.speedKmh == null || achievedSpeedKmh >= t.speedKmh;
+    if (durOk && distOk && speedOk) reached = l;
   }
   return reached;
 }

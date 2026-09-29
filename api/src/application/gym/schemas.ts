@@ -27,7 +27,8 @@ const levelTarget = z.object({ sets: z.number().int().min(1).max(20), reps: z.nu
 const cardioLevelTarget = z.object({
   durationMin: z.number().min(1).max(600).nullable().optional(),
   distanceKm: z.number().min(0).max(500).nullable().optional(),
-}).refine((t) => t.durationMin != null || t.distanceKm != null, 'defina duração e/ou distância');
+  speedKmh: z.number().min(0).max(100).nullable().optional().describe('velocidade-alvo em km/h (ex.: exercícios de corrida)'),
+}).refine((t) => t.durationMin != null || t.distanceKm != null || t.speedKmh != null, 'defina duração, distância e/ou velocidade');
 const anyLevelTarget = z.union([levelTarget, cardioLevelTarget]);
 export const targetsSchema = z.object({ min: anyLevelTarget.optional(), ideal: anyLevelTarget.optional(), max: anyLevelTarget.optional() })
   .describe('metas por nível (mesmo princípio do Ninshiki): mínimo, ideal e máximo. Para exercício de musculação: séries, repetições e carga em kg. Para cardio: duração em minutos e/ou distância em km');

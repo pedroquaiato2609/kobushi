@@ -51,6 +51,18 @@ test('cardio: nível atingido cumpre a duração E/OU a distância definidas em 
   assert.equal(cardioLevelReached({ durationSeconds: 1200, distanceKm: 0 }, soDuracao), 'ideal');
 });
 
+test('cardio: meta de velocidade (km/h) é derivada da distância ÷ tempo da própria série', () => {
+  const t = { min: { speedKmh: 8 }, ideal: { speedKmh: 10 }, max: { speedKmh: 12 } };
+  assert.equal(cardioLevelReached({ durationSeconds: 1800, distanceKm: 3 }, t), null); // 3km em 30min = 6 km/h: nem o mínimo
+  assert.equal(cardioLevelReached({ durationSeconds: 1800, distanceKm: 4 }, t), 'min'); // 4km em 30min = 8 km/h
+  assert.equal(cardioLevelReached({ durationSeconds: 1800, distanceKm: 5 }, t), 'ideal'); // 10 km/h
+  assert.equal(cardioLevelReached({ durationSeconds: 1800, distanceKm: 6 }, t), 'max'); // 12 km/h
+  // combinada com duração: só conta se cumprir os dois
+  const combo = { ideal: { durationMin: 20, speedKmh: 10 } };
+  assert.equal(cardioLevelReached({ durationSeconds: 900, distanceKm: 2.5 }, combo), null); // 15 min (10 km/h, mas duração curta)
+  assert.equal(cardioLevelReached({ durationSeconds: 1200, distanceKm: 3.5 }, combo), 'ideal'); // 20 min e ~10,5 km/h
+});
+
 test('equipamentos de cardio existem e o catálogo tem pelo menos 20 exercícios de cardio cobrindo vários deles', () => {
   for (const eq of ['treadmill', 'bike', 'stairs', 'rowing_machine', 'elliptical', 'jump_rope', 'pool'] as const) assert.ok((EQUIPMENT as readonly string[]).includes(eq));
   const cardio = CATALOG.filter((c) => c.kind === 'cardio');

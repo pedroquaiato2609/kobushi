@@ -22,9 +22,9 @@ export const fmtSets = (sets: { reps: number; weight: number }[]) => sets.map((s
 export const fmtKg = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1).replace('.', ',')} kg`;
 export const fmtVolume = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')} t` : `${Math.round(n)} kg`);
 export const fmtTarget = (t?: GymLevelTarget) => (t ? `${t.sets}×${t.reps}${t.weight ? ` · ${fmtKg(t.weight)}` : ''}` : '—');
-/** "20 min", "5 km", "20 min · 5 km" */
+/** "20 min", "5 km", "20 min · 5 km · 10 km/h" */
 export const fmtCardioTarget = (t?: GymCardioTarget) =>
-  t ? [t.durationMin ? `${t.durationMin} min` : null, t.distanceKm ? `${fmtNum(t.distanceKm)} km` : null].filter(Boolean).join(' · ') || '—' : '—';
+  t ? [t.durationMin ? `${t.durationMin} min` : null, t.distanceKm ? `${fmtNum(t.distanceKm)} km` : null, t.speedKmh ? `${fmtNum(t.speedKmh)} km/h` : null].filter(Boolean).join(' · ') || '—' : '—';
 /** "18 min · 3,2 km", "45 min" */
 export const fmtCardioSet = (s: { durationSeconds: number | null; distanceKm: number | null }) =>
   [s.durationSeconds ? fmtDuration(s.durationSeconds) : null, s.distanceKm ? `${fmtNum(s.distanceKm)} km` : null].filter(Boolean).join(' · ') || '—';

@@ -31,7 +31,9 @@ export function workoutMuscles(w: GymWorkout, byId: Map<string, GymExercise>) {
 
 interface Row { exerciseId: string; restSeconds: number; note: string; targets: GymTargets | GymCardioTargets }
 const blank = (): GymTargets => ({ min: { sets: 2, reps: 8, weight: 0 }, ideal: { sets: 3, reps: 10, weight: 0 }, max: { sets: 4, reps: 12, weight: 0 } });
-const blankCardio = (): GymCardioTargets => ({ min: { durationMin: 15, distanceKm: null }, ideal: { durationMin: 25, distanceKm: null }, max: { durationMin: 40, distanceKm: null } });
+const blankCardio = (): GymCardioTargets => ({
+  min: { durationMin: 15, distanceKm: null, speedKmh: null }, ideal: { durationMin: 25, distanceKm: null, speedKmh: null }, max: { durationMin: 40, distanceKm: null, speedKmh: null },
+});
 const blankFor = (kind: 'strength' | 'cardio') => (kind === 'cardio' ? blankCardio() : blank());
 const fmtRowTarget = (kind: 'strength' | 'cardio', t: unknown) => (kind === 'cardio' ? fmtCardioTarget(t as never) : fmtTarget(t as never));
 
@@ -57,17 +59,17 @@ function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: Gym
   );
 }
 
-/** Mesmo princípio de TargetsGrid, para exercícios de cardio: duração (min) e distância (km) em vez de séries/reps/carga. */
+/** Mesmo princípio de TargetsGrid, para exercícios de cardio: duração (min), distância (km) e velocidade (km/h) em vez de séries/reps/carga. */
 function CardioTargetsGrid({ value, onChange }: { value: GymCardioTargets; onChange: (t: GymCardioTargets) => void }) {
-  const set = (l: Level, k: 'durationMin' | 'distanceKm', raw: string) => {
+  const set = (l: Level, k: 'durationMin' | 'distanceKm' | 'speedKmh', raw: string) => {
     const n = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
-    const cur = value[l] ?? { durationMin: null, distanceKm: null };
+    const cur = value[l] ?? { durationMin: null, distanceKm: null, speedKmh: null };
     onChange({ ...value, [l]: { ...cur, [k]: n !== null && Number.isFinite(n) ? n : null } });
   };
   const toggle = (l: Level) => { const next = { ...value }; if (next[l]) delete next[l]; else next[l] = blankCardio()[l]; onChange(next); };
   return (
-    <div className="gx-tgrid" role="group" aria-label="Metas por nível (cardio)">
-      <div className="gx-tgrid-head"><span /><span>Minutos</span><span>Km (opcional)</span></div>
+    <div className="gx-tgrid gx-tgrid-cardio" role="group" aria-label="Metas por nível (cardio)">
+      <div className="gx-tgrid-head"><span /><span>Minutos</span><span>Km (opcional)</span><span>Km/h (opcional)</span></div>
       {LEVELS.map((l) => (
         <div key={l} className={`gx-tgrid-row ${l}${value[l] ? '' : ' off'}`}>
           <button type="button" className={`lvl-tag ${l}`} aria-pressed={Boolean(value[l])} onClick={() => toggle(l)} title={value[l] ? 'Toque para remover este nível' : 'Toque para definir este nível'}>{LEVEL_LABEL[l]}</button>
@@ -75,6 +77,7 @@ function CardioTargetsGrid({ value, onChange }: { value: GymCardioTargets; onCha
             <>
               <input inputMode="decimal" value={value[l]!.durationMin == null ? '' : String(value[l]!.durationMin).replace('.', ',')} onChange={(e) => set(l, 'durationMin', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: minutos`} />
               <input inputMode="decimal" value={value[l]!.distanceKm == null ? '' : String(value[l]!.distanceKm).replace('.', ',')} onChange={(e) => set(l, 'distanceKm', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: km`} />
+              <input inputMode="decimal" value={value[l]!.speedKmh == null ? '' : String(value[l]!.speedKmh).replace('.', ',')} onChange={(e) => set(l, 'speedKmh', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: velocidade em km/h`} />
             </>
           ) : <span className="hint gx-tgrid-off">não definido</span>}
         </div>
