@@ -3,8 +3,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
-import type { GymActive, GymAddSetResult, GymExercise, GymExerciseStats, GymPlanItem, GymSessionView, Level } from '../../api/types';
-import { EQUIPMENT_LABEL, estimate1rm, fmtClock, fmtSets, fmtDuration, fmtKg, fmtTarget, fmtVolume, pickTarget, restLeft } from '../../lib/gym';
+import type { GymActive, GymAddSetResult, GymCardioTargets, GymExercise, GymExerciseStats, GymPlanItem, GymSessionView, Level } from '../../api/types';
+import {
+  EQUIPMENT_LABEL, estimate1rm, fmtCardioSet, fmtCardioTarget, fmtClock, fmtSets, fmtDuration, fmtKg, fmtTarget, fmtVolume,
+  pickCardioTarget, pickTarget, restLeft,
+} from '../../lib/gym';
 import { LEVEL_LABEL, LEVELS } from '../../lib/labels';
 import { askAssistant } from '../../lib/chatPrompt';
 import { MUSCLE_LABEL } from '../../lib/muscles';
@@ -89,21 +92,39 @@ const toNum = (s: string) => { const n = Number(s.replace(',', '.')); return Num
 function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
   item: GymPlanItem; sessionId: string; onLogged: (r: GymAddSetResult, item: GymPlanItem) => void; onOpen: (e: GymExercise) => void; onRemoveExtra?: () => void;
 }) {
+  const cardio = item.exercise.kind === 'cardio';
   const t = item.targets;
   const hasTargets = Object.keys(t).length > 0;
   const lastSet = item.sets.at(-1);
   const seed = lastSet ?? item.last.reduce<{ reps: number; weight: number } | null>((a, s) => (!a || s.weight > a.weight ? s : a), null) ?? pickTarget(t, null)?.target ?? null;
   const [weight, setWeight] = useState(() => String(seed?.weight ?? 0).replace('.', ','));
   const [reps, setReps] = useState(() => String(seed?.reps ?? 10));
+  const cardioSeed = lastSet && (lastSet.durationSeconds || lastSet.distanceKm)
+    ? { minutes: Math.round((lastSet.durationSeconds ?? 0) / 60), km: lastSet.distanceKm != null ? String(lastSet.distanceKm).replace('.', ',') : '' }
+    : (() => { const p = pickCardioTarget(t as GymCardioTargets, null)?.target; return { minutes: p?.durationMin ?? 0, km: p?.distanceKm != null ? String(p.distanceKm).replace('.', ',') : '' }; })();
+  const [minutes, setMinutes] = useState(() => String(cardioSeed.minutes));
+  const [km, setKm] = useState(() => cardioSeed.km);
   const [chosen, setChosen] = useState<Level | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const qc = useQueryClient();
 
-  const log = useAction((p: { reps: number; weight: number }) => api.post<GymAddSetResult>(`/gym/sessions/${sessionId}/sets`, { exerciseId: item.exercise.id, ...p, restSeconds: item.restSeconds }), undefined);
+  const log = useAction((p: { reps?: number; weight?: number; durationSeconds?: number; distanceKm?: number }) => api.post<GymAddSetResult>(`/gym/sessions/${sessionId}/sets`, { exerciseId: item.exercise.id, ...p, restSeconds: item.restSeconds }), undefined);
   const del = useAction((id: string) => api.del(`/gym/sets/${id}`));
 
-  const pick = (l: Level) => { setChosen(l); const x = t[l]; if (x) { setWeight(String(x.weight).replace('.', ',')); setReps(String(x.reps)); } };
+  const pick = (l: Level) => {
+    setChosen(l);
+    if (cardio) { const x = (t as GymCardioTargets)[l]; if (x) { setMinutes(String(x.durationMin ?? 0)); setKm(x.distanceKm != null ? String(x.distanceKm).replace('.', ',') : ''); } return; }
+    const x = t[l]; if (x) { setWeight(String(x.weight).replace('.', ',')); setReps(String(x.reps)); }
+  };
   const submit = async () => {
+    if (cardio) {
+      const min = toNum(minutes), distance = km.trim() === '' ? 0 : toNum(km);
+      if (!Number.isFinite(min) || min <= 0) return;
+      const res = await log.mutateAsync({ durationSeconds: Math.round(min * 60), distanceKm: Number.isFinite(distance) && distance > 0 ? distance : undefined });
+      onLogged(res, item);
+      void qc.invalidateQueries({ queryKey: ['gym'] });
+      return;
+    }
     const r = toNum(reps), w = toNum(weight);
     if (!Number.isFinite(r) || r < 1 || !Number.isFinite(w) || w < 0) return;
     const res = await log.mutateAsync({ reps: Math.round(r), weight: w });
@@ -122,7 +143,7 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
           <span><b>{item.exercise.name}</b><small>{item.exercise.primaryMuscles.map((m) => MUSCLE_LABEL[m]).join(', ')} · {EQUIPMENT_LABEL[item.exercise.equipment]}</small></span>
         </button>
         <div className="gx-card-side">
-          <span className="gx-count">{item.sets.length}{targetSets ? `/${targetSets}` : ''}<small> {item.sets.length === 1 && !targetSets ? 'série' : 'séries'}</small></span>
+          <span className="gx-count">{item.sets.length}{!cardio && targetSets ? `/${targetSets}` : ''}<small> {item.sets.length === 1 ? 'série' : 'séries'}</small></span>
           <LevelTag level={item.levelReached} />
           {onRemoveExtra && <button type="button" className="icon-btn" onClick={onRemoveExtra} aria-label="Tirar exercício"><Icon name="x" size={16} /></button>}
         </div>
@@ -132,26 +153,31 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
         <div className="gx-targets" role="group" aria-label="Metas do exercício (toque para preencher)">
           {LEVELS.map((l) => t[l] && (
             <button key={l} type="button" className={`gx-target ${l}${chosen === l ? ' on' : ''}`} aria-pressed={chosen === l} onClick={() => pick(l)}>
-              <b>{LEVEL_LABEL[l]}</b><span>{fmtTarget(t[l])}</span>
+              <b>{LEVEL_LABEL[l]}</b><span>{cardio ? fmtCardioTarget(t[l] as never) : fmtTarget(t[l])}</span>
             </button>
           ))}
         </div>
       )}
 
-      <p className="gx-refs">
-        {item.last.length > 0 && <span>Última vez: {fmtSets(item.last)} kg</span>}
-        {item.best.weight > 0 && <span>Recorde: {fmtKg(item.best.weight)} · 1RM {fmtKg(item.best.e1rm)}</span>}
-        {item.note && <span>📝 {item.note}</span>}
-        {item.last.length === 0 && item.best.weight === 0 && <span>Primeira vez neste exercício: sem histórico ainda.</span>}
-      </p>
+      {!cardio && (
+        <p className="gx-refs">
+          {item.last.length > 0 && <span>Última vez: {fmtSets(item.last)} kg</span>}
+          {item.best.weight > 0 && <span>Recorde: {fmtKg(item.best.weight)} · 1RM {fmtKg(item.best.e1rm)}</span>}
+          {item.note && <span>📝 {item.note}</span>}
+          {item.last.length === 0 && item.best.weight === 0 && <span>Primeira vez neste exercício: sem histórico ainda.</span>}
+        </p>
+      )}
+      {cardio && item.note && <p className="gx-refs"><span>📝 {item.note}</span></p>}
 
       {item.sets.length > 0 && (
         <ol className="gx-sets">
           {item.sets.map((s) => (
             <li key={s.id} className={s.isPr ? 'pr' : ''}>
               <span className="gx-set-n">{s.setNumber}</span>
-              <b>{fmtKg(s.weight)} × {s.reps}</b>
-              <span className="gx-set-e1rm">1RM {fmtKg(estimate1rm(s.weight, s.reps))}</span>
+              {cardio ? <b>{fmtCardioSet(s)}</b> : <>
+                <b>{fmtKg(s.weight)} × {s.reps}</b>
+                <span className="gx-set-e1rm">1RM {fmtKg(estimate1rm(s.weight, s.reps))}</span>
+              </>}
               <LevelTag level={s.level} />
               {s.isPr && <span className="pr-badge">🏆 PR</span>}
               <button type="button" className="icon-btn" onClick={() => del.mutate(s.id)} aria-label={`Apagar série ${s.setNumber}`}><Icon name="trash" size={15} /></button>
@@ -161,8 +187,13 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
       )}
 
       <div className="gx-log">
-        <Stepper label="Carga" value={weight} onChange={setWeight} step={2.5} max={2000} suffix="kg" />
-        <Stepper label="Repetições" value={reps} onChange={setReps} step={1} min={1} max={1000} />
+        {cardio ? <>
+          <Stepper label="Minutos" value={minutes} onChange={setMinutes} step={1} min={1} max={300} suffix="min" />
+          <Stepper label="Distância" value={km} onChange={setKm} step={0.5} min={0} max={200} suffix="km" />
+        </> : <>
+          <Stepper label="Carga" value={weight} onChange={setWeight} step={2.5} max={2000} suffix="kg" />
+          <Stepper label="Repetições" value={reps} onChange={setReps} step={1} min={1} max={1000} />
+        </>}
         <button type="button" className="btn primary gx-log-btn" disabled={log.isPending} onClick={() => void submit()}>
           <Icon name="check" size={18} /> Concluir série {item.sets.length + 1}
         </button>

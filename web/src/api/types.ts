@@ -188,17 +188,27 @@ export interface OfSyncResult { ok: boolean; status: string; created: number; tr
 
 // ---- academia
 import type { Muscle } from '../lib/muscles';
-export type GymEquipment = 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'other';
+export type GymEquipment =
+  | 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'other'
+  | 'treadmill' | 'bike' | 'stairs' | 'rowing_machine' | 'elliptical' | 'jump_rope' | 'pool';
+export type GymExerciseKind = 'strength' | 'cardio';
 export interface GymExercise {
   id: string; name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: GymEquipment;
-  instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean;
+  kind: GymExerciseKind; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean;
 }
 export interface GymLevelTarget { sets: number; reps: number; weight: number }
+/** Meta de cardio por nível: duração em minutos e/ou distância em km (ao menos um definido). */
+export interface GymCardioTarget { durationMin: number | null; distanceKm: number | null }
 export type GymTargets = Partial<Record<Level, GymLevelTarget>>;
+export type GymCardioTargets = Partial<Record<Level, GymCardioTarget>>;
 export interface GymWorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: GymTargets }
 export interface GymWorkout { id: string; name: string; notes: string; weekdays: number[]; archived: boolean; items: GymWorkoutItem[] }
 export interface GymSession { id: string; workoutId: string | null; name: string; startedAt: string; endedAt: string | null; note: string; level: Level | null }
-export interface GymSet { id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number; level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: string }
+export interface GymSet {
+  id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number;
+  durationSeconds: number | null; distanceKm: number | null;
+  level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: string;
+}
 export interface GymSessionView {
   session: GymSession; durationSeconds: number; totalSets: number; volume: number; prs: number;
   exercises: { exercise: GymExercise; sets: GymSet[]; levelReached: Level | null }[]; suggestedLevel: Level | null;
@@ -224,8 +234,9 @@ export interface GymExerciseStats {
   records: {
     maxWeight: { weight: number; reps: number; date: string } | null; maxE1rm: { e1rm: number; weight: number; reps: number; date: string } | null;
     maxReps: { reps: number; weight: number; date: string } | null; maxVolume: { volume: number; date: string } | null;
+    maxDuration: { durationSeconds: number; date: string } | null; maxDistance: { distanceKm: number; date: string } | null;
   };
-  sessions: { sessionId: string; date: string; sets: { reps: number; weight: number; isPr: boolean; level: Level | null }[]; volume: number; topSet: { reps: number; weight: number }; bestE1rm: number; hadPr: boolean }[];
+  sessions: { sessionId: string; date: string; sets: { reps: number; weight: number; durationSeconds: number | null; distanceKm: number | null; isPr: boolean; level: Level | null }[]; volume: number; topSet: { reps: number; weight: number }; bestE1rm: number; hadPr: boolean }[];
   progression: { date: string; e1rm: number; topWeight: number; volume: number }[];
 }
 

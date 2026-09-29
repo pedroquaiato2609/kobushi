@@ -2,29 +2,35 @@
 // confirmação do usuário, mostrando exatamente o que será gravado. O assistente NÃO registra séries: isso é feito no modo treino.
 import { z } from 'zod';
 import type { GymService } from '../application/gym/service';
+import type { Exercise } from '../application/gym/ports';
 import { exerciseCreateSchema, targetsSchema, workoutCreateSchema } from '../application/gym/schemas';
 import { id } from '../application/schemas';
 import { ValidationError } from '../domain/errors';
 import { paragraphsToHtml, textFromHtml } from '../domain/richText';
-import { MUSCLES, type LevelTarget, type Targets } from '../domain/gym';
+import { MUSCLES, type CardioTargets, type ExerciseKind, type LevelTarget, type Targets } from '../domain/gym';
 import { tool, type ToolDefinition } from './toolTypes';
 
 const R = { resource: 'gym' as const, group: 'gym' as const, action: 'read' as const };
 const fmtT = (t?: LevelTarget) => (t ? `${t.sets}×${t.reps}${t.weight ? ` @ ${t.weight} kg` : ''}` : '—');
-const fmtTargets = (t: Targets) => `mín ${fmtT(t.min)} · ideal ${fmtT(t.ideal)} · máx ${fmtT(t.max)}`;
+const fmtCardioT = (t?: CardioTargets['min']) =>
+  (t ? [t.durationMin ? `${t.durationMin} min` : null, t.distanceKm ? `${t.distanceKm} km` : null].filter(Boolean).join(' · ') || '—' : '—');
+const fmtTargets = (t: Targets | CardioTargets, kind: ExerciseKind) => (kind === 'cardio'
+  ? `mín ${fmtCardioT((t as CardioTargets).min)} · ideal ${fmtCardioT((t as CardioTargets).ideal)} · máx ${fmtCardioT((t as CardioTargets).max)}`
+  : `mín ${fmtT((t as Targets).min)} · ideal ${fmtT((t as Targets).ideal)} · máx ${fmtT((t as Targets).max)}`);
+const fmtSet = (s: { reps: number; weight: number; durationSeconds?: number | null; distanceKm?: number | null }, kind: ExerciseKind) => (kind === 'cardio'
+  ? [s.durationSeconds ? `${Math.round(s.durationSeconds / 60)} min` : null, s.distanceKm ? `${s.distanceKm} km` : null].filter(Boolean).join(' · ') || '—'
+  : `${s.reps}×${s.weight}kg`);
 const errorMessage = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const WEEKDAY_LABEL = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const fmtDays = (days: number[]) => days.map((d) => WEEKDAY_LABEL[d]).join(', ');
 
 const aiItem = z.object({
   exercise: z.string().min(1).max(100).describe('nome (ou id) do exercício cadastrado; se não existir, crie antes com gym_create_exercise'),
-  restSeconds: z.number().int().min(0).max(900).optional().describe('descanso entre séries em segundos (padrão 90); irrelevante em exercício de cardio/duração, pode omitir'),
-  note: z.string().max(300).optional().describe('observação livre; é AQUI que entra duração/intensidade de cardio (ex.: "10 min, ritmo moderado"), já que a biblioteca não tem um campo de duração'),
-  targets: targetsSchema.optional(),
+  restSeconds: z.number().int().min(0).max(900).optional().describe('descanso entre séries em segundos (padrão 90); irrelevante em exercício de cardio, pode omitir'),
+  note: z.string().max(300).optional().describe('observação livre (ex.: intensidade, ritmo, inclinação)'),
+  targets: targetsSchema.optional().describe('metas mín/ideal/máx: séries×reps×carga se o exercício for de musculação, ou duração (min) e/ou distância (km) se for de cardio — depende do "kind" do exercício, não deste item'),
 });
-// A biblioteca só tem séries × repetições × carga (não tem duração/distância). Um exercício de cardio (esteira, bike,
-// corrida) ENTRA normalmente: deixe "targets" vazio (omita) e ponha a duração/intensidade em "note".
-const CARDIO_HINT = 'Cardio/condicionamento (esteira, bike, corrida etc.) tem os mesmos passos: escolha músculos reais do movimento (ex.: esteira/corrida → principal quadríceps e isquiotibiais, secundário gastrocnêmio e glúteos), NUNCA deixe o principal vazio. A biblioteca não tem campo de duração: registre isso na observação do item do treino (ex.: "12 min, ritmo moderado") e deixe as metas (séries/reps/carga) vazias para esse exercício.';
+const CARDIO_HINT = 'Cardio/condicionamento (esteira, bike, escada, remo, corrida etc.) tem os mesmos passos, com duas diferenças: (1) ao criar o exercício com gym_create_exercise, mande kind="cardio"; (2) as metas (targets) desse exercício são duração em minutos e/ou distância em km por nível, não séries/reps/carga. Músculos continuam reais (ex.: esteira/corrida → principal quadríceps e isquiotibiais, secundário gastrocnêmio e glúteos), NUNCA deixe o principal vazio.';
 
 export function buildGymTools(g: GymService): ToolDefinition[] {
   /**
@@ -33,12 +39,12 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
    * para o modelo tratar como uma pergunta secundária ("quer que eu crie os que faltam?") em vez de travar tudo.
    */
   const resolveItems = async (items: z.infer<typeof aiItem>[]) => {
-    const resolved: { ex: Awaited<ReturnType<typeof g.resolveExercise>>; item: { exerciseId: string; restSeconds: number; note: string; targets: Targets } }[] = [];
+    const resolved: { ex: Exercise; item: { exerciseId: string; restSeconds: number; note: string; targets: Targets | CardioTargets } }[] = [];
     const missing: string[] = [];
     for (const it of items) {
       try {
         const ex = await g.resolveExercise(it.exercise);
-        resolved.push({ ex, item: { exerciseId: ex.id, restSeconds: it.restSeconds ?? 90, note: it.note ?? '', targets: it.targets ?? {} } });
+        resolved.push({ ex, item: { exerciseId: ex.id, restSeconds: it.restSeconds ?? 90, note: it.note ?? '', targets: (it.targets ?? {}) as Targets | CardioTargets } });
       } catch (e) {
         missing.push(`"${it.exercise}" — ${errorMessage(e)}`);
       }
@@ -51,7 +57,7 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
     }
     return { resolved, missing };
   };
-  const lines = (r: { ex: { name: string }; item: { restSeconds: number; targets: Targets } }[]) => r.map(({ ex, item }) => `• ${ex.name} — descanso ${item.restSeconds}s — ${fmtTargets(item.targets)}`);
+  const lines = (r: { ex: Exercise; item: { restSeconds: number; targets: Targets | CardioTargets } }[]) => r.map(({ ex, item }) => `• ${ex.name} — descanso ${item.restSeconds}s — ${fmtTargets(item.targets, ex.kind)}`);
   const missingLines = (missing: string[]) => (missing.length
     ? ['', 'Não entraram (não encontrados na biblioteca):', ...missing.map((m) => `• ${m}`), 'Posso criar esses depois, se você quiser — é só confirmar.']
     : []);
@@ -64,10 +70,10 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
       description: 'Lista os treinos montados (nome, dias sugeridos e exercícios com metas mínimo/ideal/máximo e descanso).',
       schema: z.object({}),
       run: async () => {
-        const names = new Map((await g.listExercises()).map((e) => [e.id, e.name]));
+        const byId = new Map((await g.listExercises()).map((e) => [e.id, e]));
         return (await g.listWorkouts()).map((w) => ({
           id: w.id, nome: w.name, diasSugeridos: w.weekdays, notas: w.notes ? textFromHtml(w.notes) || undefined : undefined,
-          exercicios: w.items.map((i) => ({ exercicio: names.get(i.exerciseId), descansoSegundos: i.restSeconds, metas: fmtTargets(i.targets), nota: i.note || undefined })),
+          exercicios: w.items.map((i) => ({ exercicio: byId.get(i.exerciseId)?.name, descansoSegundos: i.restSeconds, metas: fmtTargets(i.targets, byId.get(i.exerciseId)?.kind ?? 'strength'), nota: i.note || undefined })),
         }));
       } }),
     tool({ name: 'gym_list_exercises', ...R, label: 'os exercícios',
@@ -81,8 +87,11 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
         const ex = await g.resolveExercise(exercise);
         const s = await g.exerciseStats(ex.id);
         return {
-          exercicio: ex.name, totalSessoes: s.totalSessions, recordes: s.records,
-          ultimasSessoes: s.sessions.slice(0, 6).map((x) => ({ data: x.date, series: x.sets.map((y) => `${y.reps}×${y.weight}kg${y.isPr ? ' (PR)' : ''}`), volume: x.volume, melhor1RMEstimado: x.bestE1rm })),
+          exercicio: ex.name, tipo: ex.kind, totalSessoes: s.totalSessions, recordes: s.records,
+          ultimasSessoes: s.sessions.slice(0, 6).map((x) => ({
+            data: x.date, series: x.sets.map((y) => `${fmtSet(y, ex.kind)}${y.isPr ? ' (PR)' : ''}`),
+            ...(ex.kind === 'strength' ? { volume: x.volume, melhor1RMEstimado: x.bestE1rm } : {}),
+          })),
         };
       } }),
     tool({ name: 'gym_recent_sessions', ...R, label: 'os últimos treinos',
@@ -91,7 +100,7 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
       run: async ({ limit }) => (await g.listSessions(limit ?? 8)).map((v) => ({
         id: v.session.id, treino: v.session.name, inicio: v.session.startedAt, finalizado: Boolean(v.session.endedAt), duracaoMin: Math.round(v.durationSeconds / 60),
         series: v.totalSets, volumeKg: v.volume, recordes: v.prs, nivel: v.session.level ?? undefined,
-        exercicios: v.exercises.map((e) => ({ nome: e.exercise.name, series: e.sets.map((s) => `${s.reps}×${s.weight}kg`), nivel: e.levelReached ?? undefined })),
+        exercicios: v.exercises.map((e) => ({ nome: e.exercise.name, series: e.sets.map((s) => fmtSet(s, e.exercise.kind)), nivel: e.levelReached ?? undefined })),
       })) }),
     tool({ name: 'gym_records', ...R, label: 'os recordes (PR)',
       description: 'Recorde pessoal (PR) de cada exercício já treinado: maior carga e maior 1RM estimado, com data.',
@@ -114,7 +123,7 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
       description: `Cadastra um exercício novo na biblioteca, com anatomia correta: músculo principal (motor do movimento), secundários (participam ativamente) e estabilizadores (seguram postura/tronco, não movem a articulação-alvo). Use nomes específicos (ex.: "deltoide anterior", "peitoral maior"), nunca genéricos como "ombros" ou "pernas". O mapa muscular é gerado a partir da classificação. ${CARDIO_HINT}`,
       schema: exerciseCreateSchema,
       prepare: async (a) => ({ args: a, summary: [
-        `Exercício: ${a.name}`, `Principal: ${a.primaryMuscles.join(', ')}`,
+        `Exercício: ${a.name}${a.kind === 'cardio' ? ' (cardio)' : ''}`, `Principal: ${a.primaryMuscles.join(', ')}`,
         ...(a.secondaryMuscles?.length ? [`Secundários: ${a.secondaryMuscles.join(', ')}`] : []),
         ...(a.stabilizerMuscles?.length ? [`Estabilizadores: ${a.stabilizerMuscles.join(', ')}`] : []),
         `Equipamento: ${a.equipment ?? 'other'}`,

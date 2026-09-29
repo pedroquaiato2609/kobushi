@@ -1,26 +1,30 @@
 import type { Level } from '../../domain/constants';
-import type { Equipment, Muscle, SetLike, Targets } from '../../domain/gym';
+import type { CardioTargets, Equipment, ExerciseKind, Muscle, SetLike, Targets } from '../../domain/gym';
 
 export interface Exercise {
   id: string; name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment;
-  instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean; createdAt: Date;
+  kind: ExerciseKind; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean; createdAt: Date;
 }
-export interface ExerciseInput { name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment; instructions: string; tips: string }
+export interface ExerciseInput { name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment; kind: ExerciseKind; instructions: string; tips: string }
 
-export interface WorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: Targets }
-export interface WorkoutItemInput { exerciseId: string; restSeconds: number; note: string; targets: Targets }
+export interface WorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: Targets | CardioTargets }
+export interface WorkoutItemInput { exerciseId: string; restSeconds: number; note: string; targets: Targets | CardioTargets }
 export interface Workout { id: string; name: string; notes: string; weekdays: number[]; archived: boolean; items: WorkoutItem[]; createdAt: Date }
 export interface WorkoutInput { name: string; notes: string; weekdays: number[] }
 
 export interface GymSession { id: string; workoutId: string | null; name: string; startedAt: Date; endedAt: Date | null; note: string; level: Level | null }
 export interface GymSet {
   id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number;
+  durationSeconds: number | null; distanceKm: number | null;
   level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: Date;
 }
-export interface SetInput { exerciseId: string; reps: number; weight: number; level: Level | null; restSeconds: number | null }
+export interface SetInput {
+  exerciseId: string; reps: number; weight: number; durationSeconds?: number | null; distanceKm?: number | null;
+  level: Level | null; restSeconds: number | null;
+}
 
 /** Série de um exercício em uma data (para histórico e gráficos). */
-export interface HistorySet extends SetLike { sessionId: string; date: string; createdAt: Date; isPr: boolean; level: Level | null }
+export interface HistorySet extends SetLike { sessionId: string; date: string; createdAt: Date; isPr: boolean; level: Level | null; durationSeconds: number | null; distanceKm: number | null }
 
 export interface GymRepository {
   // exercícios
@@ -50,7 +54,7 @@ export interface GymRepository {
   setsOf(sessionIds: string[]): Promise<GymSet[]>;
   getSet(id: string): Promise<GymSet | null>;
   addSet(sessionId: string, s: SetInput, isPr: boolean): Promise<GymSet>;
-  updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'level' | 'restSeconds'>>, isPr: boolean): Promise<GymSet | null>;
+  updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'>>, isPr: boolean): Promise<GymSet | null>;
   deleteSet(id: string): Promise<boolean>;
   /** Séries do exercício feitas antes de `before` (ou todas), excluindo `excludeSetId`. */
   previousSets(exerciseId: string, before: Date | null, excludeSetId: string | null): Promise<SetLike[]>;

@@ -3,9 +3,9 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
-import type { GymExercise, GymTargets, GymWorkout, Level } from '../../api/types';
+import type { GymCardioTargets, GymExercise, GymTargets, GymWorkout, Level } from '../../api/types';
 import { askAssistant } from '../../lib/chatPrompt';
-import { WEEKDAYS, fmtTarget } from '../../lib/gym';
+import { WEEKDAYS, fmtCardioTarget, fmtTarget } from '../../lib/gym';
 import { LEVEL_LABEL, LEVELS } from '../../lib/labels';
 import { MUSCLE_LABEL, type Muscle } from '../../lib/muscles';
 import { useConfirm } from '../ConfirmProvider';
@@ -29,8 +29,11 @@ export function workoutMuscles(w: GymWorkout, byId: Map<string, GymExercise>) {
   return { primary: [...primary], secondary: [...secondary].filter((m) => !primary.has(m)), stabilizer: [...stabilizer].filter((m) => !primary.has(m) && !secondary.has(m)) };
 }
 
-interface Row { exerciseId: string; restSeconds: number; note: string; targets: GymTargets }
+interface Row { exerciseId: string; restSeconds: number; note: string; targets: GymTargets | GymCardioTargets }
 const blank = (): GymTargets => ({ min: { sets: 2, reps: 8, weight: 0 }, ideal: { sets: 3, reps: 10, weight: 0 }, max: { sets: 4, reps: 12, weight: 0 } });
+const blankCardio = (): GymCardioTargets => ({ min: { durationMin: 15, distanceKm: null }, ideal: { durationMin: 25, distanceKm: null }, max: { durationMin: 40, distanceKm: null } });
+const blankFor = (kind: 'strength' | 'cardio') => (kind === 'cardio' ? blankCardio() : blank());
+const fmtRowTarget = (kind: 'strength' | 'cardio', t: unknown) => (kind === 'cardio' ? fmtCardioTarget(t as never) : fmtTarget(t as never));
 
 function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: GymTargets) => void }) {
   const set = (l: Level, k: 'sets' | 'reps' | 'weight', raw: string) => {
@@ -48,6 +51,32 @@ function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: Gym
           {value[l] ? (['sets', 'reps', 'weight'] as const).map((k) => (
             <input key={k} inputMode="decimal" value={String(value[l]![k]).replace('.', ',')} onChange={(e) => set(l, k, e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: ${k === 'sets' ? 'séries' : k === 'reps' ? 'repetições' : 'carga em kg'}`} />
           )) : <span className="hint gx-tgrid-off">não definido</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Mesmo princípio de TargetsGrid, para exercícios de cardio: duração (min) e distância (km) em vez de séries/reps/carga. */
+function CardioTargetsGrid({ value, onChange }: { value: GymCardioTargets; onChange: (t: GymCardioTargets) => void }) {
+  const set = (l: Level, k: 'durationMin' | 'distanceKm', raw: string) => {
+    const n = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
+    const cur = value[l] ?? { durationMin: null, distanceKm: null };
+    onChange({ ...value, [l]: { ...cur, [k]: n !== null && Number.isFinite(n) ? n : null } });
+  };
+  const toggle = (l: Level) => { const next = { ...value }; if (next[l]) delete next[l]; else next[l] = blankCardio()[l]; onChange(next); };
+  return (
+    <div className="gx-tgrid" role="group" aria-label="Metas por nível (cardio)">
+      <div className="gx-tgrid-head"><span /><span>Minutos</span><span>Km (opcional)</span></div>
+      {LEVELS.map((l) => (
+        <div key={l} className={`gx-tgrid-row ${l}${value[l] ? '' : ' off'}`}>
+          <button type="button" className={`lvl-tag ${l}`} aria-pressed={Boolean(value[l])} onClick={() => toggle(l)} title={value[l] ? 'Toque para remover este nível' : 'Toque para definir este nível'}>{LEVEL_LABEL[l]}</button>
+          {value[l] ? (
+            <>
+              <input inputMode="decimal" value={value[l]!.durationMin == null ? '' : String(value[l]!.durationMin).replace('.', ',')} onChange={(e) => set(l, 'durationMin', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: minutos`} />
+              <input inputMode="decimal" value={value[l]!.distanceKm == null ? '' : String(value[l]!.distanceKm).replace('.', ',')} onChange={(e) => set(l, 'distanceKm', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: km`} />
+            </>
+          ) : <span className="hint gx-tgrid-off">não definido</span>}
         </div>
       ))}
     </div>
@@ -96,7 +125,7 @@ function WorkoutEditor({ workout, onClose }: { workout?: GymWorkout; onClose: ()
                     {e && <ExerciseThumb exercise={e} size={40} />}
                     <button type="button" className="gx-row-name" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i}>
                       <b>{e?.name ?? 'Exercício removido'}</b>
-                      <small>{(['min', 'ideal', 'max'] as const).filter((l) => r.targets[l]).map((l) => `${LEVEL_LABEL[l].slice(0, 3)} ${fmtTarget(r.targets[l])}`).join(' · ') || 'sem metas'} · {r.restSeconds}s</small>
+                      <small>{(['min', 'ideal', 'max'] as const).filter((l) => r.targets[l]).map((l) => `${LEVEL_LABEL[l].slice(0, 3)} ${fmtRowTarget(e?.kind ?? 'strength', r.targets[l])}`).join(' · ') || 'sem metas'} · {r.restSeconds}s</small>
                     </button>
                     <div className="gx-row-actions">
                       <button type="button" className="icon-btn" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Subir">↑</button>
@@ -106,7 +135,9 @@ function WorkoutEditor({ workout, onClose }: { workout?: GymWorkout; onClose: ()
                   </div>
                   {open === i && (
                     <div className="gx-row-body">
-                      <TargetsGrid value={r.targets} onChange={(t) => patchRow(i, { targets: t })} />
+                      {e?.kind === 'cardio'
+                        ? <CardioTargetsGrid value={r.targets as GymCardioTargets} onChange={(t) => patchRow(i, { targets: t })} />
+                        : <TargetsGrid value={r.targets as GymTargets} onChange={(t) => patchRow(i, { targets: t })} />}
                       <div className="row">
                         <Field label="Descanso entre séries (s)"><input inputMode="numeric" value={r.restSeconds} onChange={(e) => patchRow(i, { restSeconds: Math.min(900, Math.max(0, Number(e.target.value.replace(/\D/g, '')) || 0)) })} /></Field>
                         <Field label="Observação"><input value={r.note} onChange={(e) => patchRow(i, { note: e.target.value })} placeholder="ex.: pausa de 1 s embaixo" /></Field>
@@ -129,7 +160,7 @@ function WorkoutEditor({ workout, onClose }: { workout?: GymWorkout; onClose: ()
       </div>
     </Modal>
     {/* fora do <form> do editor: formulário dentro de formulário faria o Enter da busca salvar o treino */}
-    {picking && <ExercisePicker onClose={() => setPicking(false)} onPick={(e) => { setRows((r) => [...r, { exerciseId: e.id, restSeconds: 90, note: '', targets: blank() }]); setPicking(false); setOpen(rows.length); }} />}
+    {picking && <ExercisePicker onClose={() => setPicking(false)} onPick={(e) => { setRows((r) => [...r, { exerciseId: e.id, restSeconds: 90, note: '', targets: blankFor(e.kind) }]); setPicking(false); setOpen(rows.length); }} />}
     </>
   );
 }
@@ -162,7 +193,7 @@ export function WorkoutBuilder() {
                 <h3>{w.name}</h3>
                 <p className="hint">{w.items.length} exercício{w.items.length === 1 ? '' : 's'}{w.weekdays.length ? ` · ${w.weekdays.map((d) => WEEKDAYS[d]).join(', ')}` : ''}</p>
                 <ul className="gx-wex">
-                  {w.items.slice(0, 5).map((i) => <li key={i.id}>{byId.get(i.exerciseId)?.name ?? '—'} <small>{fmtTarget(i.targets.ideal ?? i.targets.min ?? i.targets.max)}</small></li>)}
+                  {w.items.slice(0, 5).map((i) => <li key={i.id}>{byId.get(i.exerciseId)?.name ?? '—'} <small>{fmtRowTarget(byId.get(i.exerciseId)?.kind ?? 'strength', i.targets.ideal ?? i.targets.min ?? i.targets.max)}</small></li>)}
                   {w.items.length > 5 && <li className="hint">+ {w.items.length - 5}…</li>}
                 </ul>
                 <div className="gx-wcard-actions">

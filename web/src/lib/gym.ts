@@ -1,5 +1,5 @@
 // Utilidades puras do módulo Academia (formatação e cronômetros). Sem React, para poderem ser testadas.
-import type { GymLevelTarget, GymTargets } from '../api/types';
+import type { GymCardioTarget, GymCardioTargets, GymLevelTarget, GymTargets } from '../api/types';
 import type { Level } from '../api/types';
 
 /** 3725 -> "1:02:05"; 65 -> "1:05" */
@@ -22,6 +22,12 @@ export const fmtSets = (sets: { reps: number; weight: number }[]) => sets.map((s
 export const fmtKg = (n: number) => `${Number.isInteger(n) ? n : n.toFixed(1).replace('.', ',')} kg`;
 export const fmtVolume = (n: number) => (n >= 1000 ? `${(n / 1000).toFixed(1).replace('.', ',')} t` : `${Math.round(n)} kg`);
 export const fmtTarget = (t?: GymLevelTarget) => (t ? `${t.sets}×${t.reps}${t.weight ? ` · ${fmtKg(t.weight)}` : ''}` : '—');
+/** "20 min", "5 km", "20 min · 5 km" */
+export const fmtCardioTarget = (t?: GymCardioTarget) =>
+  t ? [t.durationMin ? `${t.durationMin} min` : null, t.distanceKm ? `${fmtNum(t.distanceKm)} km` : null].filter(Boolean).join(' · ') || '—' : '—';
+/** "18 min · 3,2 km", "45 min" */
+export const fmtCardioSet = (s: { durationSeconds: number | null; distanceKm: number | null }) =>
+  [s.durationSeconds ? fmtDuration(s.durationSeconds) : null, s.distanceKm ? `${fmtNum(s.distanceKm)} km` : null].filter(Boolean).join(' · ') || '—';
 export const fmtDate = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
 export const fmtDateFull = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
 
@@ -36,6 +42,15 @@ export function pickTarget(targets: GymTargets, level: Level | null): { level: L
   for (const l of order) if (targets[l]) return { level: l, target: targets[l] as GymLevelTarget };
   return null;
 }
+/** Mesmo princípio de pickTarget, para metas de cardio (duração/distância). */
+export function pickCardioTarget(targets: GymCardioTargets, level: Level | null): { level: Level; target: GymCardioTarget } | null {
+  const order: Level[] = level ? [level, 'ideal', 'min', 'max'] : ['ideal', 'min', 'max'];
+  for (const l of order) if (targets[l]) return { level: l, target: targets[l] as GymCardioTarget };
+  return null;
+}
 
-export const EQUIPMENT_LABEL: Record<string, string> = { barbell: 'Barra', dumbbell: 'Halteres', machine: 'Máquina', cable: 'Polia', bodyweight: 'Peso do corpo', kettlebell: 'Kettlebell', other: 'Outro' };
+export const EQUIPMENT_LABEL: Record<string, string> = {
+  barbell: 'Barra', dumbbell: 'Halteres', machine: 'Máquina', cable: 'Polia', bodyweight: 'Peso do corpo', kettlebell: 'Kettlebell', other: 'Outro',
+  treadmill: 'Esteira', bike: 'Bicicleta', stairs: 'Escada/Step', rowing_machine: 'Remo', elliptical: 'Elíptico', jump_rope: 'Corda', pool: 'Natação',
+};
 export const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];

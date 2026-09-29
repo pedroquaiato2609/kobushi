@@ -30,13 +30,24 @@ export const MUSCLES = [
 ] as const;
 export type Muscle = (typeof MUSCLES)[number];
 
-export const EQUIPMENT = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'other'] as const;
+export const EQUIPMENT = [
+  'barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'other',
+  // cardio: aparelho/local do exercício, mesmo princípio dos de musculação
+  'treadmill', 'bike', 'stairs', 'rowing_machine', 'elliptical', 'jump_rope', 'pool',
+] as const;
 export type Equipment = (typeof EQUIPMENT)[number];
 
+export const EXERCISE_KINDS = ['strength', 'cardio'] as const; // musculação (séries×reps×carga) | cardio (duração/distância)
+export type ExerciseKind = (typeof EXERCISE_KINDS)[number];
+
 export interface LevelTarget { sets: number; reps: number; weight: number }
+/** Meta de cardio por nível: duração e/ou distância (ao menos um definido). */
+export interface CardioTarget { durationMin?: number | null; distanceKm?: number | null }
 export type Targets = Partial<Record<Level, LevelTarget>>;
+export type CardioTargets = Partial<Record<Level, CardioTarget>>;
 
 export interface SetLike { reps: number; weight: number }
+export interface CardioSetLike { durationSeconds: number; distanceKm: number }
 
 /** Carga máxima estimada (1RM) pela fórmula de Epley. Uma repetição vale a própria carga. */
 export function estimate1rm(weight: number, reps: number): number {
@@ -74,6 +85,19 @@ export function levelReached(set: SetLike, targets: Targets): Level | null {
   for (const l of ['min', 'ideal', 'max'] as const) {
     const t = targets[l];
     if (t && set.reps >= t.reps && set.weight >= t.weight) reached = l;
+  }
+  return reached;
+}
+
+/** Mesmo princípio de levelReached, mas para cardio: cumpre a meta do nível quando atinge a duração E/OU a distância definidas nele. */
+export function cardioLevelReached(set: CardioSetLike, targets: CardioTargets): Level | null {
+  let reached: Level | null = null;
+  for (const l of ['min', 'ideal', 'max'] as const) {
+    const t = targets[l];
+    if (!t || (t.durationMin == null && t.distanceKm == null)) continue;
+    const durOk = t.durationMin == null || set.durationSeconds >= t.durationMin * 60;
+    const distOk = t.distanceKm == null || set.distanceKm >= t.distanceKm;
+    if (durOk && distOk) reached = l;
   }
   return reached;
 }

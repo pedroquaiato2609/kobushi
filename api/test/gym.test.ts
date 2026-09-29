@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { CATALOG } from '../src/application/gym/catalog';
-import { bestOf, detectPr, estimate1rm, levelReached, MUSCLES, normalizeName, recoveryOf, volumeOf } from '../src/domain/gym';
+import { bestOf, cardioLevelReached, detectPr, estimate1rm, EQUIPMENT, levelReached, MUSCLES, normalizeName, recoveryOf, volumeOf } from '../src/domain/gym';
 
 test('1RM estimado (Epley): uma repetição vale a carga; mais repetições elevam a estimativa', () => {
   assert.equal(estimate1rm(100, 1), 100);
@@ -36,6 +36,27 @@ test('nível atingido: o maior de mínimo/ideal/máximo cuja carga e repetiçõe
   assert.equal(levelReached({ reps: 10, weight: 60 }, t), 'max');
   assert.equal(levelReached({ reps: 12, weight: 45 }, t), 'min'); // reps sobrando não compensam a carga do ideal
   assert.equal(levelReached({ reps: 8, weight: 50 }, {}), null);
+});
+
+test('cardio: nível atingido cumpre a duração E/OU a distância definidas em cada nível (não séries/reps/carga)', () => {
+  const t = { min: { durationMin: 15, distanceKm: null }, ideal: { durationMin: 25, distanceKm: 3 }, max: { durationMin: 40, distanceKm: 5 } };
+  assert.equal(cardioLevelReached({ durationSeconds: 600, distanceKm: 0 }, t), null); // 10 min: nem o mínimo
+  assert.equal(cardioLevelReached({ durationSeconds: 900, distanceKm: 0 }, t), 'min'); // 15 min
+  assert.equal(cardioLevelReached({ durationSeconds: 1500, distanceKm: 2 }, t), 'min'); // 25 min mas só 2 km: ideal exige os dois
+  assert.equal(cardioLevelReached({ durationSeconds: 1500, distanceKm: 3 }, t), 'ideal');
+  assert.equal(cardioLevelReached({ durationSeconds: 2400, distanceKm: 5 }, t), 'max');
+  assert.equal(cardioLevelReached({ durationSeconds: 3600, distanceKm: 10 }, {}), null); // sem metas definidas
+  // nível com só duração (distanceKm null): distância não entra na conta
+  const soDuracao = { ideal: { durationMin: 20, distanceKm: null } };
+  assert.equal(cardioLevelReached({ durationSeconds: 1200, distanceKm: 0 }, soDuracao), 'ideal');
+});
+
+test('equipamentos de cardio existem e o catálogo tem pelo menos 20 exercícios de cardio cobrindo vários deles', () => {
+  for (const eq of ['treadmill', 'bike', 'stairs', 'rowing_machine', 'elliptical', 'jump_rope', 'pool'] as const) assert.ok((EQUIPMENT as readonly string[]).includes(eq));
+  const cardio = CATALOG.filter((c) => c.kind === 'cardio');
+  assert.ok(cardio.length >= 20, `esperava pelo menos 20 exercícios de cardio, achei ${cardio.length}`);
+  const equipmentsUsed = new Set(cardio.map((c) => c.equipment));
+  assert.ok(equipmentsUsed.size >= 5, 'cardio deveria cobrir vários equipamentos diferentes (esteira, bike, escada...)');
 });
 
 test('recuperação muscular: 100% em 72 h, nunca treinado = pronto', () => {

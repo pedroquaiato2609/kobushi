@@ -8,13 +8,14 @@ const toExercise = (r: Record<string, any>): Exercise => {
   const e = mapRow<any>(r);
   return {
     id: e.id, name: e.name, primaryMuscles: e.primaryMuscles, secondaryMuscles: e.secondaryMuscles, stabilizerMuscles: e.stabilizerMuscles ?? [], equipment: e.equipment,
-    instructions: e.instructions, tips: e.tips, isCustom: e.isCustom, imageMime: e.imageStorage ? e.imageMime : null, archived: e.archived, createdAt: e.createdAt,
+    kind: e.kind, instructions: e.instructions, tips: e.tips, isCustom: e.isCustom, imageMime: e.imageStorage ? e.imageMime : null, archived: e.archived, createdAt: e.createdAt,
   };
 };
 const toItem = (r: Record<string, any>): WorkoutItem => ({ id: r.id, exerciseId: r.exercise_id, position: r.position, restSeconds: r.rest_seconds, note: r.note, targets: r.targets ?? {} });
 const toSession = (r: Record<string, any>): GymSession => ({ id: r.id, workoutId: r.workout_id, name: r.name, startedAt: r.started_at, endedAt: r.ended_at, note: r.note, level: r.level });
 const toSet = (r: Record<string, any>): GymSet => ({
   id: r.id, sessionId: r.session_id, exerciseId: r.exercise_id, setNumber: r.set_number, reps: r.reps, weight: r.weight,
+  durationSeconds: r.duration_seconds, distanceKm: r.distance_km,
   level: r.level, restSeconds: r.rest_seconds, isPr: r.is_pr, createdAt: r.created_at,
 });
 const like = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -39,8 +40,8 @@ export class PgGymRepository implements GymRepository {
   }
   async createExercise(d: ExerciseInput & { isCustom: boolean }) {
     const { rows } = await this.db.query(
-      `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, instructions, tips, is_custom) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.instructions, d.tips, d.isCustom],
+      `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, instructions, tips, is_custom) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.instructions, d.tips, d.isCustom],
     );
     return toExercise(rows[0]);
   }
@@ -50,26 +51,27 @@ export class PgGymRepository implements GymRepository {
       // O índice único é em lower(name); só exercícios do catálogo (is_custom = false) colidem por nome com o catálogo,
       // já que um exercício do usuário com o mesmo nome já teria sido recusado na criação. Seguro atualizar sem checar is_custom.
       const r = await this.db.query(
-        `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, instructions, tips, is_custom)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,false)
+        `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, instructions, tips, is_custom)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false)
          ON CONFLICT ((lower(name))) DO UPDATE SET
            primary_muscles = EXCLUDED.primary_muscles, secondary_muscles = EXCLUDED.secondary_muscles, stabilizer_muscles = EXCLUDED.stabilizer_muscles,
-           equipment = EXCLUDED.equipment, instructions = EXCLUDED.instructions, tips = EXCLUDED.tips, updated_at = now()
+           equipment = EXCLUDED.equipment, kind = EXCLUDED.kind, instructions = EXCLUDED.instructions, tips = EXCLUDED.tips, updated_at = now()
          WHERE gym_exercises.primary_muscles IS DISTINCT FROM EXCLUDED.primary_muscles
             OR gym_exercises.secondary_muscles IS DISTINCT FROM EXCLUDED.secondary_muscles
             OR gym_exercises.stabilizer_muscles IS DISTINCT FROM EXCLUDED.stabilizer_muscles
             OR gym_exercises.equipment IS DISTINCT FROM EXCLUDED.equipment
+            OR gym_exercises.kind IS DISTINCT FROM EXCLUDED.kind
             OR gym_exercises.instructions IS DISTINCT FROM EXCLUDED.instructions
             OR gym_exercises.tips IS DISTINCT FROM EXCLUDED.tips
          RETURNING (xmax = 0) AS inserted`,
-        [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.instructions, d.tips],
+        [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.instructions, d.tips],
       );
       if (r.rows[0]?.inserted) created++; else if (r.rowCount) updated++;
     }
     return { created, updated };
   }
   async updateExercise(id: string, patch: Partial<ExerciseInput>) {
-    const row = await updateRow(this.db, 'gym_exercises', 'id', id, patch, ['name', 'primaryMuscles', 'secondaryMuscles', 'stabilizerMuscles', 'equipment', 'instructions', 'tips']);
+    const row = await updateRow(this.db, 'gym_exercises', 'id', id, patch, ['name', 'primaryMuscles', 'secondaryMuscles', 'stabilizerMuscles', 'equipment', 'kind', 'instructions', 'tips']);
     return row ? toExercise(row) : null;
   }
   async removeExercise(id: string) {
@@ -153,14 +155,14 @@ export class PgGymRepository implements GymRepository {
   async getSet(id: string) { const { rows } = await this.db.query('SELECT * FROM gym_sets WHERE id = $1', [id]); return rows[0] ? toSet(rows[0]) : null; }
   async addSet(sessionId: string, s: SetInput, isPr: boolean) {
     const { rows } = await this.db.query(
-      `INSERT INTO gym_sets (session_id, exercise_id, set_number, reps, weight, level, rest_seconds, is_pr)
-       VALUES ($1,$2,(SELECT COALESCE(max(set_number), 0) + 1 FROM gym_sets WHERE session_id = $1 AND exercise_id = $2),$3,$4,$5,$6,$7) RETURNING *`,
-      [sessionId, s.exerciseId, s.reps, s.weight, s.level, s.restSeconds, isPr],
+      `INSERT INTO gym_sets (session_id, exercise_id, set_number, reps, weight, duration_seconds, distance_km, level, rest_seconds, is_pr)
+       VALUES ($1,$2,(SELECT COALESCE(max(set_number), 0) + 1 FROM gym_sets WHERE session_id = $1 AND exercise_id = $2),$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+      [sessionId, s.exerciseId, s.reps, s.weight, s.durationSeconds ?? null, s.distanceKm ?? null, s.level, s.restSeconds, isPr],
     );
     return toSet(rows[0]);
   }
-  async updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'level' | 'restSeconds'>>, isPr: boolean) {
-    const row = await updateRow(this.db, 'gym_sets', 'id', id, { ...patch, isPr }, ['reps', 'weight', 'level', 'restSeconds', 'isPr'], { touch: false });
+  async updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'>>, isPr: boolean) {
+    const row = await updateRow(this.db, 'gym_sets', 'id', id, { ...patch, isPr }, ['reps', 'weight', 'durationSeconds', 'distanceKm', 'level', 'restSeconds', 'isPr'], { touch: false });
     return row ? toSet(row) : null;
   }
   async deleteSet(id: string) { const r = await this.db.query('DELETE FROM gym_sets WHERE id = $1', [id]); return (r.rowCount ?? 0) > 0; }
@@ -177,11 +179,11 @@ export class PgGymRepository implements GymRepository {
       `WITH recent AS (
          SELECT DISTINCT s.session_id, ss.started_at FROM gym_sets s JOIN gym_sessions ss ON ss.id = s.session_id
           WHERE s.exercise_id = $1 ORDER BY ss.started_at DESC LIMIT $3)
-       SELECT s.session_id, to_char(r.started_at AT TIME ZONE $2, 'YYYY-MM-DD') AS date, s.created_at, s.reps, s.weight, s.is_pr, s.level
+       SELECT s.session_id, to_char(r.started_at AT TIME ZONE $2, 'YYYY-MM-DD') AS date, s.created_at, s.reps, s.weight, s.duration_seconds, s.distance_km, s.is_pr, s.level
          FROM gym_sets s JOIN recent r ON r.session_id = s.session_id WHERE s.exercise_id = $1 ORDER BY r.started_at DESC, s.created_at`,
       [exerciseId, timezone, limitSessions],
     );
-    return rows.map((r) => ({ sessionId: r.session_id, date: r.date, createdAt: r.created_at, reps: r.reps, weight: r.weight, isPr: r.is_pr, level: r.level }));
+    return rows.map((r) => ({ sessionId: r.session_id, date: r.date, createdAt: r.created_at, reps: r.reps, weight: r.weight, durationSeconds: r.duration_seconds, distanceKm: r.distance_km, isPr: r.is_pr, level: r.level }));
   }
   async lastPerformance(exerciseId: string, excludeSessionId: string | null): Promise<SetLike[]> {
     const { rows } = await this.db.query(

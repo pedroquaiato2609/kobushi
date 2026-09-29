@@ -8,11 +8,14 @@
 //  • stabilizer: não move a articulação-alvo; segura postura, tronco ou escápula durante a execução.
 // Variações do mesmo exercício (ângulo do banco, inclinação do tronco etc.) podem mudar essa classificação —
 // isso é comentado nas dicas de cada exercício quando relevante, em vez de criar entradas separadas.
-import type { Equipment, Muscle } from '../../domain/gym';
+import type { Equipment, ExerciseKind, Muscle } from '../../domain/gym';
 
-export interface CatalogItem { name: string; primary: Muscle[]; secondary: Muscle[]; stabilizer: Muscle[]; equipment: Equipment; instructions: string; tips: string }
+export interface CatalogItem { name: string; primary: Muscle[]; secondary: Muscle[]; stabilizer: Muscle[]; equipment: Equipment; kind: ExerciseKind; instructions: string; tips: string }
 const x = (name: string, primary: Muscle[], secondary: Muscle[], stabilizer: Muscle[], equipment: Equipment, instructions: string, tips: string): CatalogItem =>
-  ({ name, primary, secondary, stabilizer, equipment, instructions, tips });
+  ({ name, primary, secondary, stabilizer, equipment, kind: 'strength', instructions, tips });
+/** Exercício de cardio: mesma classificação muscular, mas rastreado por duração/distância em vez de séries×reps×carga. */
+const xc = (name: string, primary: Muscle[], secondary: Muscle[], stabilizer: Muscle[], equipment: Equipment, instructions: string, tips: string): CatalogItem =>
+  ({ name, primary, secondary, stabilizer, equipment, kind: 'cardio', instructions, tips });
 
 export const CATALOG: CatalogItem[] = [
   // Peito ---------------------------------------------------------------------------------------------------
@@ -234,4 +237,73 @@ export const CATALOG: CatalogItem[] = [
   x('Rotação russa', ['obliques'], ['rectus_abdominis'], ['hip_flexors'], 'bodyweight',
     'Sentado, com o tronco levemente inclinado para trás, gire de um lado para o outro tocando o chão ao lado do quadril.',
     'Segure um peso com as duas mãos para aumentar a exigência dos oblíquos.'),
+
+  // Cardio ------------------------------------------------------------------------------------------------
+  // Rastreado por duração (minutos) e/ou distância (km) em vez de séries×reps×carga.
+  xc('Esteira - caminhada', ['quadriceps', 'hamstrings', 'gastrocnemius'], ['gluteus_maximus'], ['erector_spinae'], 'treadmill',
+    'Caminhe em ritmo constante, postura ereta, sem se apoiar nos corrimãos.',
+    'Bom ponto de partida ou recuperação ativa entre treinos mais intensos.'),
+  xc('Esteira - corrida moderada', ['quadriceps', 'hamstrings', 'gastrocnemius'], ['gluteus_maximus', 'hip_flexors'], ['rectus_abdominis', 'obliques'], 'treadmill',
+    'Corra em ritmo que permita conversar em frases curtas, sem perder o fôlego.',
+    'Aumente a velocidade aos poucos ao longo das semanas em vez de tudo de uma vez.'),
+  xc('Esteira - corrida em inclinação', ['gluteus_maximus', 'quadriceps'], ['hamstrings', 'gastrocnemius'], ['erector_spinae'], 'treadmill',
+    'Caminhe ou corra com a esteira inclinada (5–10%), simulando uma subida.',
+    'A inclinação poupa os joelhos e ativa mais os glúteos que correr no plano.'),
+  xc('Esteira - tiros (intervalado)', ['quadriceps', 'hamstrings'], ['gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis'], 'treadmill',
+    'Alterne blocos curtos de corrida forte com blocos de caminhada ou trote leve para recuperar.',
+    'Comece com poucos tiros e aumente a quantidade conforme o condicionamento melhora.'),
+  xc('Bicicleta ergométrica', ['quadriceps'], ['hamstrings', 'gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis'], 'bike',
+    'Pedale sentado, em ritmo constante, com o banco ajustado para o joelho ficar levemente flexionado no ponto mais baixo.',
+    'Ajuste a resistência para manter o ritmo sem forçar demais os joelhos.'),
+  xc('Bicicleta ergométrica reclinada', ['quadriceps'], ['hamstrings', 'gluteus_maximus'], ['erector_spinae'], 'bike',
+    'Pedale com as costas apoiadas no encosto reclinado, útil para quem tem desconforto lombar na bike tradicional.',
+    'Boa opção de baixo impacto para iniciantes ou em fase de recuperação.'),
+  xc('Bike indoor intervalada (spinning)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis', 'obliques'], 'bike',
+    'Alterne trechos sentados e em pé, variando a resistência entre blocos intensos e blocos de recuperação.',
+    'Em pé, mantenha o tronco levemente inclinado à frente e o core ativado.'),
+  xc('Escada ergométrica (stairmaster)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis'], 'stairs',
+    'Suba os degraus em ritmo constante, postura ereta, evitando se apoiar no corrimão.',
+    'Passos mais curtos e rápidos poupam mais o joelho que passos longos e lentos.'),
+  xc('Step / subida em banco', ['quadriceps', 'gluteus_maximus'], ['hamstrings'], ['erector_spinae'], 'stairs',
+    'Suba e desça de um banco ou step, alternando a perna que inicia o movimento.',
+    'Mantenha o joelho alinhado com o pé ao subir, sem deixá-lo cair para dentro.'),
+  xc('Elíptico (transport)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'deltoid_anterior', 'triceps_brachii'], ['rectus_abdominis'], 'elliptical',
+    'Mantenha o movimento fluido de pernas e braços, sem apoiar o peso nos manípulos.',
+    'Baixo impacto: boa alternativa à corrida para quem tem sensibilidade nos joelhos.'),
+  xc('Remo ergométrico', ['latissimus_dorsi', 'quadriceps'], ['biceps_brachii', 'hamstrings', 'trapezius', 'rhomboids'], ['rectus_abdominis', 'erector_spinae'], 'rowing_machine',
+    'Empurre com as pernas, incline o tronco para trás e puxe o guidão até o abdômen, na sequência pernas → tronco → braços.',
+    'A força vem principalmente das pernas, não dos braços — eles só finalizam o movimento.'),
+  xc('Corda naval (battle rope)', ['deltoid_anterior', 'deltoid_lateral'], ['triceps_brachii', 'trapezius'], ['rectus_abdominis', 'obliques'], 'other',
+    'Com um pé à frente do outro, ondule as cordas alternando ou juntando os braços, em blocos curtos e intensos.',
+    'Mantenha o core contraído para não deixar a lombar balançar com o impacto.'),
+  xc('Pular corda', ['gastrocnemius', 'soleus'], ['quadriceps', 'deltoid_lateral'], ['rectus_abdominis'], 'jump_rope',
+    'Pule com saltos pequenos e constantes, girando a corda pelos punhos, não pelos ombros.',
+    'Comece em blocos curtos: é mais intenso do que parece para a panturrilha.'),
+  xc('Corrida ao ar livre', ['quadriceps', 'hamstrings', 'gastrocnemius'], ['gluteus_maximus', 'hip_flexors'], ['rectus_abdominis', 'obliques'], 'bodyweight',
+    'Corra em ritmo constante ao ar livre, ajustando o percurso à sua distância ou tempo-alvo.',
+    'Superfícies mais macias (grama, terra) poupam mais as articulações que o asfalto.'),
+  xc('Caminhada ao ar livre', ['quadriceps', 'hamstrings', 'gastrocnemius'], ['gluteus_maximus'], ['erector_spinae'], 'bodyweight',
+    'Caminhe em ritmo ativo, braços se movendo naturalmente com o passo.',
+    'Fácil de manter todo dia: uma das formas de cardio mais sustentáveis a longo prazo.'),
+  xc('Ciclismo ao ar livre', ['quadriceps'], ['hamstrings', 'gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis', 'erector_spinae'], 'bike',
+    'Pedale ao ar livre mantendo cadência constante, ajustando a marcha conforme o percurso.',
+    'Use capacete e vias seguras; varie o percurso para não enjoar do treino.'),
+  xc('Natação - nado livre', ['latissimus_dorsi', 'deltoid_posterior'], ['triceps_brachii', 'pectoral_major', 'quadriceps'], ['rectus_abdominis', 'obliques'], 'pool',
+    'Nade em ritmo constante, respiração coordenada com as braçadas.',
+    'Exercício de baixíssimo impacto: ótimo para quem tem dor articular.'),
+  xc('Natação - nado intervalado', ['latissimus_dorsi', 'deltoid_posterior'], ['triceps_brachii', 'gastrocnemius'], ['transverse_abdominis'], 'pool',
+    'Alterne piscinas em ritmo forte com piscinas de nado leve para recuperar.',
+    'Use as bordas para cronometrar os blocos de esforço e descanso.'),
+  xc('Polichinelo (jumping jack)', ['deltoid_lateral', 'gluteus_medius'], ['quadriceps', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
+    'Salte abrindo pernas e braços ao mesmo tempo, e volte à posição inicial no salto seguinte.',
+    'Bom para aquecer ou para blocos curtos de intensidade num circuito.'),
+  xc('Burpee', ['quadriceps', 'pectoral_major'], ['deltoid_anterior', 'triceps_brachii', 'hamstrings'], ['rectus_abdominis', 'obliques'], 'bodyweight',
+    'Agache, apoie as mãos no chão, jogue as pernas para trás em prancha, volte e finalize com um salto.',
+    'Reduza o salto final ou a flexão se for iniciante — o movimento completo é bem intenso.'),
+  xc('Escalador (mountain climber)', ['rectus_abdominis', 'hip_flexors'], ['deltoid_anterior', 'quadriceps'], ['transverse_abdominis', 'obliques'], 'bodyweight',
+    'Em posição de prancha, alterne trazendo os joelhos ao peito em ritmo rápido.',
+    'Mantenha o quadril baixo e estável — não deixe subir a cada troca de perna.'),
+  xc('Agachamento com salto (jump squat)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
+    'Agache e exploda para cima saltando, aterrissando de forma suave de volta ao agachamento.',
+    'Aterrisse com os joelhos levemente flexionados para amortecer o impacto.'),
 ];

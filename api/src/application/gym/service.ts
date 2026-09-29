@@ -2,13 +2,13 @@ import type { z } from 'zod';
 import type { Level } from '../../domain/constants';
 import { NotFoundError, ValidationError } from '../../domain/errors';
 import {
-  bestOf, detectPr, estimate1rm, levelReached, normalizeName, recoveryOf, volumeOf,
-  type Best, type Muscle, type PrKind, type SetLike, type Targets,
+  bestOf, cardioLevelReached, detectPr, estimate1rm, levelReached, normalizeName, recoveryOf, volumeOf,
+  type Best, type CardioTargets, type Muscle, type PrKind, type SetLike, type Targets,
 } from '../../domain/gym';
 import type { FileStore } from '../library';
 import { sanitizeRichHtml } from '../richText';
 import { CATALOG } from './catalog';
-import type { Exercise, GymRepository, GymSession, GymSet, HistorySet, Workout, WorkoutItem } from './ports';
+import type { Exercise, GymRepository, GymSession, GymSet, HistorySet, Workout, WorkoutItem, WorkoutItemInput } from './ports';
 import type { exerciseCreateSchema, exerciseUpdateSchema, sessionFinishSchema, sessionStartSchema, setCreateSchema, setUpdateSchema, workoutCreateSchema, workoutUpdateSchema } from './schemas';
 
 const RANK: Record<Level, number> = { min: 1, ideal: 2, max: 3 };
@@ -16,7 +16,7 @@ const LEVELS_ASC: Level[] = ['min', 'ideal', 'max'];
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']); // nunca SVG/HTML: são servidos na mesma origem do app
 
 export interface PlanItem {
-  exercise: Exercise; restSeconds: number; note: string; targets: Targets; planned: boolean;
+  exercise: Exercise; restSeconds: number; note: string; targets: Targets | CardioTargets; planned: boolean;
   last: SetLike[]; best: Best; sets: GymSet[]; levelReached: Level | null;
 }
 export interface SessionView {
@@ -52,7 +52,7 @@ export class GymService {
   syncCatalog() {
     return this.repo.upsertCatalog(CATALOG.map((c) => ({
       name: c.name, primaryMuscles: c.primary, secondaryMuscles: c.secondary, stabilizerMuscles: c.stabilizer,
-      equipment: c.equipment, instructions: c.instructions, tips: c.tips,
+      equipment: c.equipment, kind: c.kind, instructions: c.instructions, tips: c.tips,
     })));
   }
 
@@ -72,7 +72,7 @@ export class GymService {
     const classified = this.classify(input.primaryMuscles, input.secondaryMuscles ?? [], input.stabilizerMuscles ?? []);
     try {
       return await this.repo.createExercise({
-        name: input.name, equipment: input.equipment ?? 'other',
+        name: input.name, equipment: input.equipment ?? 'other', kind: input.kind ?? 'strength',
         instructions: input.instructions ?? '', tips: input.tips ?? '', isCustom: true, ...classified,
       });
     } catch (e) { if (isUniqueViolation(e)) throw new ValidationError('Já existe um exercício com esse nome.'); throw e; }
@@ -118,7 +118,7 @@ export class GymService {
         if (top.length === 1) return top[0].e;
         if (top.length > 1) throw new ValidationError(`Mais de um exercício parece com "${nameOrId}": ${top.slice(0, 5).map((s) => s.e.name).join('; ')}. Pergunte ao usuário qual, uma única vez.`);
       }
-      throw new ValidationError(`Não achei o exercício "${nameOrId}" e não há nada parecido na biblioteca (que é só de musculação — sem cardio como corrida). Não invente variações chamando de novo: crie com gym_create_exercise (pode ser numa pergunta separada, sem travar o resto do treino) ou pergunte ao usuário.`);
+      throw new ValidationError(`Não achei o exercício "${nameOrId}" e não há nada parecido na biblioteca. Não invente variações chamando de novo: crie com gym_create_exercise (pode ser numa pergunta separada, sem travar o resto do treino) ou pergunte ao usuário.`);
     }
     throw new ValidationError(`Mais de um exercício combina com "${nameOrId}": ${partial.slice(0, 8).map((e) => e.name).join('; ')}. Pergunte ao usuário qual, uma única vez.`);
   }
@@ -159,14 +159,16 @@ export class GymService {
   async createWorkout(input: z.output<typeof workoutCreateSchema>) {
     const items = input.items ?? [];
     await this.checkItems(items);
-    return this.repo.createWorkout({ name: input.name, notes: sanitizeRichHtml(input.notes ?? ''), weekdays: [...new Set(input.weekdays ?? [])].sort() }, items);
+    // o Zod valida cada meta (por nível) como musculação OU cardio individualmente; o formato exato depende
+    // do "kind" do exercício, checado no serviço, não no schema — daqui pra frente é WorkoutItemInput mesmo.
+    return this.repo.createWorkout({ name: input.name, notes: sanitizeRichHtml(input.notes ?? ''), weekdays: [...new Set(input.weekdays ?? [])].sort() }, items as unknown as WorkoutItemInput[]);
   }
   async updateWorkout(id: string, patch: z.output<typeof workoutUpdateSchema>) {
     await this.getWorkout(id);
     if (patch.items) await this.checkItems(patch.items);
     const { items, ...rest } = patch;
     if (rest.notes !== undefined) rest.notes = sanitizeRichHtml(rest.notes);
-    return (await this.repo.updateWorkout(id, { ...rest, ...(rest.weekdays ? { weekdays: [...new Set(rest.weekdays)].sort() } : {}) }, items)) as Workout;
+    return (await this.repo.updateWorkout(id, { ...rest, ...(rest.weekdays ? { weekdays: [...new Set(rest.weekdays)].sort() } : {}) }, items as unknown as WorkoutItemInput[] | undefined)) as Workout;
   }
   /**
    * Outros treinos ativos que caem no(s) mesmo(s) dia(s) — não impede nada (a pessoa pode querer mais de um treino
@@ -186,13 +188,22 @@ export class GymService {
   // ---- sessões -----------------------------------------------------------------------
   private durationOf(s: GymSession) { return Math.max(0, Math.round(((s.endedAt ?? this.now()).getTime() - s.startedAt.getTime()) / 1000)); }
 
-  private levelFor(sets: SetLike[], targets: Targets): Level | null {
+  /** Nível de UMA série, no formato certo pro tipo do exercício (musculação: carga×reps; cardio: duração/distância). */
+  private setLevelReached(kind: 'strength' | 'cardio', set: GymSet, targets: Targets | CardioTargets): Level | null {
+    return kind === 'cardio'
+      ? cardioLevelReached({ durationSeconds: set.durationSeconds ?? 0, distanceKm: set.distanceKm ?? 0 }, targets as CardioTargets)
+      : levelReached(set, targets as Targets);
+  }
+
+  /** Nível da SESSÃO nesse exercício: musculação exige o nº de séries da meta; cardio (sem "séries") basta cumprir uma vez. */
+  private levelFor(sets: GymSet[], targets: Targets | CardioTargets, kind: 'strength' | 'cardio'): Level | null {
     let out: Level | null = null;
     for (const l of LEVELS_ASC) {
       const t = targets[l];
       if (!t) continue;
-      const ok = sets.filter((s) => { const r = levelReached(s, { [l]: t }); return r === l; }).length;
-      if (ok >= t.sets) out = l;
+      if (kind === 'cardio') { if (sets.some((s) => this.setLevelReached('cardio', s, { [l]: t }) === l)) out = l; continue; }
+      const ok = sets.filter((s) => this.setLevelReached('strength', s, { [l]: t }) === l).length;
+      if (ok >= (t as { sets: number }).sets) out = l;
     }
     return out;
   }
@@ -208,7 +219,7 @@ export class GymService {
       const ex = byId.get(id) as Exercise;
       const mine = sets.filter((s) => s.exerciseId === id);
       const targets = items.get(id)?.targets ?? {};
-      return { exercise: ex, sets: mine, levelReached: this.levelFor(mine, targets) };
+      return { exercise: ex, sets: mine, levelReached: this.levelFor(mine, targets, ex.kind) };
     });
     const planned = (workout?.items ?? []).filter((i) => Object.keys(i.targets).length > 0);
     const levels = planned.map((i) => groups.find((g) => g.exercise.id === i.exerciseId)?.levelReached ?? null);
@@ -276,27 +287,41 @@ export class GymService {
 
   async addSet(sessionId: string, input: z.output<typeof setCreateSchema>): Promise<{ set: GymSet; prs: PrKind[]; e1rm: number }> {
     const session = await this.requireActive(sessionId);
-    await this.getExercise(input.exerciseId);
-    const prev = await this.repo.previousSets(input.exerciseId, null, null);
-    const prs = detectPr(prev, input);
+    const exercise = await this.getExercise(input.exerciseId);
+    const cardio = exercise.kind === 'cardio';
+    // recordes (maior carga/1RM) só fazem sentido pra musculação: cardio sempre tem reps=weight=0, então detectPr já
+    // devolveria [] sozinho, mas evita a consulta à toa
+    const prs = cardio ? [] : detectPr(await this.repo.previousSets(input.exerciseId, null, null), input);
     const workout = session.workoutId ? await this.repo.getWorkout(session.workoutId) : null;
     const targets = workout?.items.find((i) => i.exerciseId === input.exerciseId)?.targets ?? {};
-    const level = input.level ?? levelReached(input, targets);
-    const set = await this.repo.addSet(sessionId, { exerciseId: input.exerciseId, reps: input.reps, weight: input.weight, level, restSeconds: input.restSeconds ?? null }, prs.length > 0);
-    return { set, prs, e1rm: estimate1rm(input.weight, input.reps) };
+    const durationSeconds = input.durationSeconds ?? null;
+    const distanceKm = input.distanceKm ?? null;
+    const level = input.level ?? this.setLevelReached(exercise.kind, { ...input, durationSeconds, distanceKm } as GymSet, targets);
+    const set = await this.repo.addSet(sessionId, {
+      exerciseId: input.exerciseId, reps: input.reps, weight: input.weight, durationSeconds, distanceKm, level, restSeconds: input.restSeconds ?? null,
+    }, prs.length > 0);
+    return { set, prs, e1rm: cardio ? 0 : estimate1rm(input.weight, input.reps) };
   }
 
   async updateSet(id: string, patch: z.output<typeof setUpdateSchema>) {
     const cur = await this.repo.getSet(id);
     if (!cur) throw new NotFoundError('Série');
-    const next = { reps: patch.reps ?? cur.reps, weight: patch.weight ?? cur.weight };
-    const prs = detectPr(await this.repo.previousSets(cur.exerciseId, cur.createdAt, id), next);
-    // mudou carga ou repetições sem escolher o nível: recalcula pelo que o treino planejava para o exercício
+    const exercise = await this.getExercise(cur.exerciseId);
+    const cardio = exercise.kind === 'cardio';
+    const next = {
+      reps: patch.reps ?? cur.reps, weight: patch.weight ?? cur.weight,
+      durationSeconds: patch.durationSeconds !== undefined ? patch.durationSeconds : cur.durationSeconds,
+      distanceKm: patch.distanceKm !== undefined ? patch.distanceKm : cur.distanceKm,
+    };
+    const prs = cardio ? [] : detectPr(await this.repo.previousSets(cur.exerciseId, cur.createdAt, id), next);
+    // mudou o desempenho sem escolher o nível: recalcula pelo que o treino planejava para o exercício
     let level = patch.level;
-    if (level === undefined && (patch.reps !== undefined || patch.weight !== undefined)) {
+    const changedPerformance = cardio ? (patch.durationSeconds !== undefined || patch.distanceKm !== undefined) : (patch.reps !== undefined || patch.weight !== undefined);
+    if (level === undefined && changedPerformance) {
       const session = await this.repo.getSession(cur.sessionId);
       const workout = session?.workoutId ? await this.repo.getWorkout(session.workoutId) : null;
-      level = levelReached(next, workout?.items.find((i) => i.exerciseId === cur.exerciseId)?.targets ?? {});
+      const targets = workout?.items.find((i) => i.exerciseId === cur.exerciseId)?.targets ?? {};
+      level = this.setLevelReached(exercise.kind, next as GymSet, targets);
     }
     return (await this.repo.updateSet(id, { ...patch, ...(level !== undefined ? { level } : {}) }, prs.length > 0)) as GymSet;
   }
@@ -320,7 +345,7 @@ export class GymService {
     return [...map.values()].map((g) => {
       const best = bestOf(g.sets);
       const top = g.sets.reduce((a, s) => (s.weight > a.weight || (s.weight === a.weight && s.reps > a.reps) ? s : a), g.sets[0]);
-      return { sessionId: g.sessionId, date: g.date, sets: g.sets.map((s) => ({ reps: s.reps, weight: s.weight, isPr: s.isPr, level: s.level })), volume: volumeOf(g.sets), topSet: { reps: top.reps, weight: top.weight }, bestE1rm: best.e1rm, hadPr: g.sets.some((s) => s.isPr) };
+      return { sessionId: g.sessionId, date: g.date, sets: g.sets.map((s) => ({ reps: s.reps, weight: s.weight, durationSeconds: s.durationSeconds, distanceKm: s.distanceKm, isPr: s.isPr, level: s.level })), volume: volumeOf(g.sets), topSet: { reps: top.reps, weight: top.weight }, bestE1rm: best.e1rm, hadPr: g.sets.some((s) => s.isPr) };
     });
   }
 
@@ -335,6 +360,9 @@ export class GymService {
       maxE1rm: pick(flat, (s) => estimate1rm(s.weight, s.reps), (s) => ({ e1rm: estimate1rm(s.weight, s.reps), weight: s.weight, reps: s.reps, date: s.date })),
       maxReps: pick(flat, (s) => s.reps, (s) => ({ reps: s.reps, weight: s.weight, date: s.date })),
       maxVolume: sessions.length ? (() => { const b = sessions.reduce((a, s) => (s.volume > a.volume ? s : a)); return b.volume > 0 ? { volume: b.volume, date: b.date } : null; })() : null,
+      // cardio: maior duração e maior distância já registradas (recorde de musculação não se aplica aqui)
+      maxDuration: pick(rows, (s) => s.durationSeconds ?? 0, (s) => ({ durationSeconds: s.durationSeconds ?? 0, date: s.date })),
+      maxDistance: pick(rows, (s) => s.distanceKm ?? 0, (s) => ({ distanceKm: s.distanceKm ?? 0, date: s.date })),
     };
     const progression = [...sessions].reverse().map((s) => ({ date: s.date, e1rm: s.bestE1rm, topWeight: s.topSet.weight, volume: s.volume }));
     return { exercise, records, sessions: sessions.slice(0, 30), progression, totalSessions: sessions.length, totalSets: rows.length };

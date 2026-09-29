@@ -3,8 +3,8 @@ import { useMemo, useRef, useState } from 'react';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { api, ApiError } from '../../api/client';
 import { useAction } from '../../api/hooks';
-import type { GymEquipment, GymExercise, GymExerciseStats } from '../../api/types';
-import { EQUIPMENT_LABEL, fmtDate, fmtDateFull, fmtKg, fmtSets, fmtVolume } from '../../lib/gym';
+import type { GymEquipment, GymExercise, GymExerciseKind, GymExerciseStats } from '../../api/types';
+import { EQUIPMENT_LABEL, fmtCardioSet, fmtDate, fmtDateFull, fmtDuration, fmtKg, fmtSets, fmtVolume } from '../../lib/gym';
 import { MUSCLE_LABEL, MUSCLE_ZONE, MUSCLES_BY_ZONE, ZONES, ZONE_LABEL, type Muscle, type Zone } from '../../lib/muscles';
 import { useConfirm } from '../ConfirmProvider';
 import { Icon } from '../Icon';
@@ -15,7 +15,28 @@ import { ExerciseThumb, muscleNames, useExercises } from './shared';
 /** Histórico e recordes de um exercício (usado no detalhe e nos relatórios). */
 export function ExerciseStatsBody({ stats }: { stats: GymExerciseStats }) {
   const r = stats.records;
-  if (stats.totalSessions === 0) return <p className="hint">Ainda sem histórico neste exercício. Faça o primeiro treino para ver a evolução das cargas.</p>;
+  if (stats.totalSessions === 0) return <p className="hint">Ainda sem histórico neste exercício. Faça o primeiro treino para ver a evolução.</p>;
+
+  if (stats.exercise.kind === 'cardio') {
+    return (
+      <div className="gx-stats">
+        <div className="gx-records">
+          {r.maxDuration && r.maxDuration.durationSeconds > 0 && <div><span>Maior duração</span><b>{fmtDuration(r.maxDuration.durationSeconds)}</b><small>{fmtDateFull(r.maxDuration.date)}</small></div>}
+          {r.maxDistance && r.maxDistance.distanceKm > 0 && <div><span>Maior distância</span><b>{r.maxDistance.distanceKm} km</b><small>{fmtDateFull(r.maxDistance.date)}</small></div>}
+        </div>
+        <h4 className="gx-h4">Últimas sessões</h4>
+        <ul className="gx-hist">
+          {stats.sessions.slice(0, 8).map((s) => (
+            <li key={s.sessionId}>
+              <b>{fmtDateFull(s.date)}</b>
+              <span>{s.sets.map((set) => fmtCardioSet(set)).join(' · ')}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
   return (
     <div className="gx-stats">
       <div className="gx-records">
@@ -129,8 +150,11 @@ const CATEGORY_HINT: Record<Category, string> = {
 };
 
 /** Cadastro/edição: escolha os músculos por região (chips agrupados). O mapa é só a pré-visualização gerada a partir da escolha. */
+const KIND_LABEL: Record<GymExerciseKind, string> = { strength: 'Musculação (séries, reps e carga)', cardio: 'Cardio (duração e/ou distância)' };
+
 export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymExercise; onClose: () => void; onSaved?: (e: GymExercise) => void }) {
   const [name, setName] = useState(exercise?.name ?? '');
+  const [kind, setKind] = useState<GymExerciseKind>(exercise?.kind ?? 'strength');
   const [equipment, setEquipment] = useState<GymEquipment>(exercise?.equipment ?? 'machine');
   const [primary, setPrimary] = useState<Muscle[]>(exercise?.primaryMuscles ?? []);
   const [secondary, setSecondary] = useState<Muscle[]>(exercise?.secondaryMuscles ?? []);
@@ -152,7 +176,7 @@ export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymE
     (p: object) => (exercise ? api.patch<GymExercise>(`/gym/exercises/${exercise.id}`, p) : api.post<GymExercise>('/gym/exercises', p)),
     (e) => { onSaved?.(e); onClose(); },
   );
-  const submit = () => save.mutate({ name: name.trim(), equipment, primaryMuscles: primary, secondaryMuscles: secondary, stabilizerMuscles: stabilizer, instructions, tips });
+  const submit = () => save.mutate({ name: name.trim(), kind, equipment, primaryMuscles: primary, secondaryMuscles: secondary, stabilizerMuscles: stabilizer, instructions, tips });
 
   return (
     <Modal title={exercise ? 'Editar exercício' : 'Novo exercício'} onClose={onClose} onSubmit={submit} wide
@@ -164,11 +188,18 @@ export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymE
         </div>
         <div className="gx-detail-info">
           <Field label="Nome"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="ex.: Supino inclinado na máquina" autoFocus required /></Field>
-          <Field label="Equipamento">
-            <select value={equipment} onChange={(e) => setEquipment(e.target.value as GymEquipment)}>
-              {Object.entries(EQUIPMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </Field>
+          <div className="row">
+            <Field label="Tipo">
+              <select value={kind} onChange={(e) => setKind(e.target.value as GymExerciseKind)}>
+                {(Object.keys(KIND_LABEL) as GymExerciseKind[]).map((k) => <option key={k} value={k}>{KIND_LABEL[k]}</option>)}
+              </select>
+            </Field>
+            <Field label="Equipamento">
+              <select value={equipment} onChange={(e) => setEquipment(e.target.value as GymEquipment)}>
+                {Object.entries(EQUIPMENT_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+            </Field>
+          </div>
           <fieldset className="field">
             <legend className="field-label">Músculos: toque para alternar entre principal → secundário → estabilizador → nenhum</legend>
             {primary.length === 0 && <p className="error" role="alert">Escolha pelo menos um músculo principal.</p>}
