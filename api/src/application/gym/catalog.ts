@@ -52,6 +52,9 @@ export const CATALOG: CatalogItem[] = [
   x('Mergulho nas paralelas', ['pectoral_major'], ['triceps_brachii', 'deltoid_anterior'], ['serratus_anterior'], 'bodyweight',
     'Nas paralelas, incline o tronco à frente, desça até os ombros ficarem na altura dos cotovelos e empurre de volta à extensão.',
     'Quanto mais inclinado o tronco, mais o peitoral participa; na vertical, o foco muda para o tríceps.'),
+  x('Supino articulado', ['pectoral_major'], ['triceps_brachii', 'deltoid_anterior'], ['serratus_anterior'], 'machine',
+    'Sentado, empurre as manoplas à frente até quase estender os cotovelos, e retorne controlando até sentir o alongamento no peito.',
+    'Os braços independentes permitem perceber e corrigir diferenças de força entre os lados.'),
 
   // Costas ---------------------------------------------------------------------------------------------------
   x('Barra fixa', ['latissimus_dorsi'], ['biceps_brachii', 'teres_major', 'rhomboids'], ['trapezius', 'rectus_abdominis'], 'bodyweight',
@@ -90,6 +93,12 @@ export const CATALOG: CatalogItem[] = [
   x('Hiperextensão lombar', ['erector_spinae'], ['gluteus_maximus', 'hamstrings'], ['rectus_abdominis'], 'bodyweight',
     'No banco romano, desça o tronco mantendo a coluna neutra e suba até alinhar tronco e pernas, sem hiperestender.',
     'Evite subir além da linha reta do corpo: o objetivo é fortalecer, não hiperestender a lombar.'),
+  x('Puxada sueca', ['latissimus_dorsi'], ['biceps_brachii', 'teres_major'], ['trapezius', 'rhomboids'], 'machine',
+    'Sentado, com os joelhos presos, puxe as manoplas para baixo levando os cotovelos ao lado do corpo, e retorne até o alongamento.',
+    'Os braços independentes evitam compensar o lado mais forte durante o movimento.'),
+  x('Remada na máquina', ['latissimus_dorsi'], ['rhomboids', 'biceps_brachii', 'trapezius'], ['erector_spinae'], 'machine',
+    'Sentado, com o peito apoiado, puxe as manoplas em direção ao tronco levando os cotovelos para trás, e retorne alongando as costas.',
+    'O apoio no peito tira a lombar do movimento, deixando o foco só nas costas.'),
 
   // Ombros ---------------------------------------------------------------------------------------------------
   x('Desenvolvimento com barra', ['deltoid_anterior'], ['deltoid_lateral', 'triceps_brachii'], ['trapezius', 'rectus_abdominis'], 'barbell',
@@ -116,6 +125,12 @@ export const CATALOG: CatalogItem[] = [
   x('Face pull', ['deltoid_posterior'], ['rotator_cuff', 'trapezius'], ['rhomboids'], 'cable',
     'Na polia alta com a corda, puxe em direção ao rosto abrindo os cotovelos e rodando os ombros para trás.',
     'Excelente para a saúde do ombro; use carga moderada e foque na rotação externa no final do movimento.'),
+  x('Crucifixo inverso na máquina', ['deltoid_posterior'], ['trapezius', 'rhomboids'], ['rotator_cuff'], 'machine',
+    'Sentado de frente para o encosto, abra os braços levando as manoplas para trás até a altura dos ombros, e retorne controlando.',
+    'Mantenha os cotovelos levemente flexionados e o movimento lento, sem usar impulso.'),
+  x('Desenvolvimento com halteres sentado', ['deltoid_anterior'], ['deltoid_lateral', 'triceps_brachii'], ['trapezius', 'rotator_cuff'], 'dumbbell',
+    'Sentado com encosto, empurre os halteres da altura dos ombros até quase se tocarem acima da cabeça, e desça controlando.',
+    'O encosto tira a lombar do movimento; incline levemente os halteres para dentro no topo.'),
 
   // Bíceps ---------------------------------------------------------------------------------------------------
   x('Rosca direta com barra', ['biceps_brachii'], ['brachialis'], ['brachioradialis'], 'barbell',
@@ -136,6 +151,9 @@ export const CATALOG: CatalogItem[] = [
   x('Rosca na polia', ['biceps_brachii'], ['brachialis'], ['brachioradialis'], 'cable',
     'Na polia baixa, flexione os cotovelos mantendo tensão constante durante toda a repetição.',
     'A polia mantém a tensão mesmo com o braço estendido, diferente do halter.'),
+  x('Rosca direta na polia (barra)', ['biceps_brachii'], ['brachialis'], ['brachioradialis'], 'cable',
+    'Na polia baixa com a barra reta, flexione os cotovelos mantendo o tronco parado, e desça controlando até quase estender os braços.',
+    'A polia mantém tensão constante do início ao fim, diferente da barra livre.'),
 
   // Tríceps ---------------------------------------------------------------------------------------------------
   x('Tríceps testa', ['triceps_brachii'], [], [], 'barbell',
@@ -156,6 +174,9 @@ export const CATALOG: CatalogItem[] = [
   x('Tríceps coice', ['triceps_brachii'], [], ['deltoid_posterior'], 'dumbbell',
     'Com o tronco inclinado e o cotovelo fixo junto ao corpo, estenda o antebraço para trás até a extensão total.',
     'Use carga leve: o foco é a contração isolada do tríceps no final do movimento.'),
+  x('Tríceps na polia (barra)', ['triceps_brachii'], [], ['deltoid_anterior'], 'cable',
+    'Em pé, com os cotovelos junto ao corpo, estenda os cotovelos empurrando a barra para baixo, e retorne controlando.',
+    'Diferente da corda, a barra fixa a pegada e facilita cargas mais altas.'),
 
   // Antebraço ---------------------------------------------------------------------------------------------------
   x('Rosca de punho', ['wrist_flexors'], [], ['brachioradialis'], 'barbell',
@@ -178,12 +199,18 @@ export const CATALOG: CatalogItem[] = [
   x('Hack squat', ['quadriceps'], ['gluteus_maximus'], [], 'machine',
     'Com as costas apoiadas, desça flexionando os joelhos e empurre a plataforma de volta à extensão.',
     'Pés mais baixos e próximos na plataforma aumentam o foco no quadríceps.'),
+  x('Agachamento articulado', ['quadriceps'], ['gluteus_maximus'], ['hamstrings'], 'machine',
+    'Com os ombros sob as almofadas, desça flexionando os joelhos até um ângulo confortável, e empurre de volta à extensão.',
+    'Parecido com o hack squat, mas os braços articulados guiam o movimento com mais liberdade.'),
   x('Cadeira extensora', ['quadriceps'], [], [], 'machine',
     'Sentado, estenda os joelhos até a contração máxima e desça devagar, sem soltar o peso.',
     'Segure um instante no topo antes de descer, para maximizar a contração.'),
   x('Mesa flexora', ['hamstrings'], ['gastrocnemius'], [], 'machine',
     'Deitado, flexione os joelhos levando os calcanhares em direção aos glúteos, e estenda controlando.',
     'Mantenha o quadril colado ao banco durante todo o movimento.'),
+  x('Cadeira flexora', ['hamstrings'], ['gastrocnemius'], [], 'machine',
+    'Sentado, com os calcanhares apoiados no rolo, flexione os joelhos puxando o rolo para baixo, e estenda controlando.',
+    'Diferente da mesa flexora (deitado), a posição sentada muda o ângulo de trabalho do posterior de coxa.'),
   x('Stiff', ['hamstrings', 'gluteus_maximus'], ['erector_spinae'], ['brachioradialis'], 'barbell',
     'Com os joelhos levemente flexionados, incline o tronco levando o quadril para trás até sentir o alongamento posterior, e retorne à posição ereta.',
     'Mantenha a barra rente às pernas e a coluna neutra durante toda a execução.'),

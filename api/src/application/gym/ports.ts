@@ -13,7 +13,16 @@ export interface Workout { id: string; name: string; notes: string; weekdays: nu
 export interface WorkoutInput { name: string; notes: string; weekdays: number[] }
 
 export interface GymSession { id: string; workoutId: string | null; name: string; startedAt: Date; endedAt: Date | null; note: string; level: Level | null }
-export interface GymSet {
+
+/**
+ * Detalhes extras de uma série de cardio, preenchidos depois de concluída (opcional): não entram no nível
+ * atingido nem em recordes, são só informação a mais guardada com a série (ex.: vinda de um relógio/app externo).
+ */
+export interface CardioSetDetails {
+  caloriesKcal: number | null; avgSpeedKmh: number | null; maxSpeedKmh: number | null;
+  avgPaceMinKm: number | null; maxPaceMinKm: number | null; avgHeartRate: number | null; maxHeartRate: number | null;
+}
+export interface GymSet extends CardioSetDetails {
   id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number;
   durationSeconds: number | null; distanceKm: number | null;
   level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: Date;
@@ -54,7 +63,7 @@ export interface GymRepository {
   setsOf(sessionIds: string[]): Promise<GymSet[]>;
   getSet(id: string): Promise<GymSet | null>;
   addSet(sessionId: string, s: SetInput, isPr: boolean): Promise<GymSet>;
-  updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'>>, isPr: boolean): Promise<GymSet | null>;
+  updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'> & CardioSetDetails>, isPr: boolean): Promise<GymSet | null>;
   deleteSet(id: string): Promise<boolean>;
   /** Séries do exercício feitas antes de `before` (ou todas), excluindo `excludeSetId`. */
   previousSets(exerciseId: string, before: Date | null, excludeSetId: string | null): Promise<SetLike[]>;

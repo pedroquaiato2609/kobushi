@@ -204,7 +204,12 @@ export type GymCardioTargets = Partial<Record<Level, GymCardioTarget>>;
 export interface GymWorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: GymTargets }
 export interface GymWorkout { id: string; name: string; notes: string; weekdays: number[]; archived: boolean; items: GymWorkoutItem[] }
 export interface GymSession { id: string; workoutId: string | null; name: string; startedAt: string; endedAt: string | null; note: string; level: Level | null }
-export interface GymSet {
+/** Detalhes extras de uma série de cardio, preenchidos depois de concluída (opcional). */
+export interface GymCardioSetDetails {
+  caloriesKcal: number | null; avgSpeedKmh: number | null; maxSpeedKmh: number | null;
+  avgPaceMinKm: number | null; maxPaceMinKm: number | null; avgHeartRate: number | null; maxHeartRate: number | null;
+}
+export interface GymSet extends GymCardioSetDetails {
   id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number;
   durationSeconds: number | null; distanceKm: number | null;
   level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: string;

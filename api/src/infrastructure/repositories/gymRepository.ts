@@ -1,4 +1,4 @@
-import type { Exercise, ExerciseInput, GymRepository, GymSession, GymSet, HistorySet, SetInput, Workout, WorkoutInput, WorkoutItem, WorkoutItemInput } from '../../application/gym/ports';
+import type { CardioSetDetails, Exercise, ExerciseInput, GymRepository, GymSession, GymSet, HistorySet, SetInput, Workout, WorkoutInput, WorkoutItem, WorkoutItemInput } from '../../application/gym/ports';
 import type { Level } from '../../domain/constants';
 import type { Muscle, SetLike } from '../../domain/gym';
 import { withTx, type Db } from '../db/pool';
@@ -16,6 +16,8 @@ const toSession = (r: Record<string, any>): GymSession => ({ id: r.id, workoutId
 const toSet = (r: Record<string, any>): GymSet => ({
   id: r.id, sessionId: r.session_id, exerciseId: r.exercise_id, setNumber: r.set_number, reps: r.reps, weight: r.weight,
   durationSeconds: r.duration_seconds, distanceKm: r.distance_km,
+  caloriesKcal: r.calories_kcal, avgSpeedKmh: r.avg_speed_kmh, maxSpeedKmh: r.max_speed_kmh,
+  avgPaceMinKm: r.avg_pace_min_km, maxPaceMinKm: r.max_pace_min_km, avgHeartRate: r.avg_heart_rate, maxHeartRate: r.max_heart_rate,
   level: r.level, restSeconds: r.rest_seconds, isPr: r.is_pr, createdAt: r.created_at,
 });
 const like = (s: string) => `%${s.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
@@ -161,8 +163,11 @@ export class PgGymRepository implements GymRepository {
     );
     return toSet(rows[0]);
   }
-  async updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'>>, isPr: boolean) {
-    const row = await updateRow(this.db, 'gym_sets', 'id', id, { ...patch, isPr }, ['reps', 'weight', 'durationSeconds', 'distanceKm', 'level', 'restSeconds', 'isPr'], { touch: false });
+  async updateSet(id: string, patch: Partial<Pick<SetInput, 'reps' | 'weight' | 'durationSeconds' | 'distanceKm' | 'level' | 'restSeconds'> & CardioSetDetails>, isPr: boolean) {
+    const row = await updateRow(this.db, 'gym_sets', 'id', id, { ...patch, isPr }, [
+      'reps', 'weight', 'durationSeconds', 'distanceKm', 'level', 'restSeconds', 'isPr',
+      'caloriesKcal', 'avgSpeedKmh', 'maxSpeedKmh', 'avgPaceMinKm', 'maxPaceMinKm', 'avgHeartRate', 'maxHeartRate',
+    ], { touch: false });
     return row ? toSet(row) : null;
   }
   async deleteSet(id: string) { const r = await this.db.query('DELETE FROM gym_sets WHERE id = $1', [id]); return (r.rowCount ?? 0) > 0; }

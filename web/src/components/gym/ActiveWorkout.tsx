@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
-import type { GymActive, GymAddSetResult, GymCardioTargets, GymExercise, GymExerciseStats, GymPlanItem, GymSessionView, Level } from '../../api/types';
+import type { GymActive, GymAddSetResult, GymCardioTargets, GymExercise, GymExerciseStats, GymPlanItem, GymSessionView, GymSet, Level } from '../../api/types';
 import {
-  EQUIPMENT_LABEL, estimate1rm, fmtCardioSet, fmtCardioTarget, fmtClock, fmtSets, fmtDuration, fmtKg, fmtTarget, fmtVolume,
+  EQUIPMENT_LABEL, estimate1rm, fmtCardioExtras, fmtCardioSet, fmtCardioTarget, fmtClock, fmtSets, fmtDuration, fmtKg, fmtPace, fmtTarget, fmtVolume,
   pickCardioTarget, pickTarget, restLeft,
 } from '../../lib/gym';
 import { LEVEL_LABEL, LEVELS } from '../../lib/labels';
@@ -87,6 +87,62 @@ function Stepper({ label, value, onChange, step, min = 0, max, suffix }: { label
 }
 
 const toNum = (s: string) => { const n = Number(s.replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
+const numOrNull = (s: string) => { const n = Number(s.replace(',', '.')); return s.trim() === '' || !Number.isFinite(n) ? null : n; };
+
+// ---- detalhes extras de uma série de cardio (opcional, preenchido depois de concluir) ------------------
+const CARDIO_DETAIL_FIELDS = [
+  { key: 'caloriesKcal', label: 'Calorias', suffix: 'kcal', pace: false },
+  { key: 'avgSpeedKmh', label: 'Vel. média', suffix: 'km/h', pace: false },
+  { key: 'maxSpeedKmh', label: 'Vel. máxima', suffix: 'km/h', pace: false },
+  { key: 'avgPaceMinKm', label: 'Ritmo médio', suffix: 'min:seg', pace: true },
+  { key: 'maxPaceMinKm', label: 'Ritmo máximo', suffix: 'min:seg', pace: true },
+  { key: 'avgHeartRate', label: 'FC média', suffix: 'bpm', pace: false },
+  { key: 'maxHeartRate', label: 'FC máxima', suffix: 'bpm', pace: false },
+] as const;
+/** Aceita "6:15" (min:seg, mais natural pra ritmo) ou decimal ("6,25"); sempre grava como minutos decimais. */
+const parsePaceInput = (s: string): number | null => {
+  const t = s.trim();
+  if (t === '') return null;
+  if (t.includes(':')) {
+    const [m, sec] = t.split(':');
+    const mm = Number(m), ss = Number(sec);
+    return Number.isFinite(mm) && Number.isFinite(ss) ? mm + ss / 60 : null;
+  }
+  return numOrNull(t);
+};
+
+function CardioSetDetailsRow({ set, onDone }: { set: GymSet; onDone: () => void }) {
+  // sugestão automática de velocidade/ritmo médios a partir da duração e distância já registradas (o resto é manual)
+  const suggestedSpeed = set.distanceKm && set.durationSeconds ? Math.round((set.distanceKm / (set.durationSeconds / 3600)) * 10) / 10 : null;
+  const suggestedPace = set.distanceKm && set.durationSeconds ? Math.round((set.durationSeconds / 60 / set.distanceKm) * 100) / 100 : null;
+  const initial = (f: (typeof CARDIO_DETAIL_FIELDS)[number]) => {
+    const v = set[f.key] ?? (f.key === 'avgSpeedKmh' ? suggestedSpeed : f.key === 'avgPaceMinKm' ? suggestedPace : null);
+    if (v == null) return '';
+    return f.pace ? fmtPace(v).replace('/km', '') : String(v).replace('.', ',');
+  };
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(CARDIO_DETAIL_FIELDS.map((f) => [f.key, initial(f)])));
+  const save = useAction((p: object) => api.patch<GymSet>(`/gym/sets/${set.id}`, p), onDone);
+
+  const submit = () => save.mutate(Object.fromEntries(CARDIO_DETAIL_FIELDS.map((f) => [f.key, f.pace ? parsePaceInput(values[f.key]) : numOrNull(values[f.key])])));
+
+  return (
+    <li className="gx-set-details">
+      <div className="gx-set-details-grid">
+        {CARDIO_DETAIL_FIELDS.map((f) => (
+          <label key={f.key}>
+            {f.label}
+            <input inputMode={f.pace ? 'text' : 'decimal'} value={values[f.key]} onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))} placeholder={f.suffix} onFocus={(e) => e.target.select()} />
+          </label>
+        ))}
+      </div>
+      <div className="gx-set-details-actions">
+        <button type="button" className="btn small primary" disabled={save.isPending} onClick={submit}>Salvar</button>
+        <button type="button" className="btn small ghost" onClick={onDone}>Fechar</button>
+      </div>
+      <ErrorText error={save.error} />
+    </li>
+  );
+}
 
 // ---- cartão de exercício -------------------------------------------------------------------
 function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
@@ -106,6 +162,7 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
   const [km, setKm] = useState(() => cardioSeed.km);
   const [chosen, setChosen] = useState<Level | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
+  const [openDetails, setOpenDetails] = useState<string | null>(null);
   const qc = useQueryClient();
 
   const log = useAction((p: { reps?: number; weight?: number; durationSeconds?: number; distanceKm?: number }) => api.post<GymAddSetResult>(`/gym/sessions/${sessionId}/sets`, { exerciseId: item.exercise.id, ...p, restSeconds: item.restSeconds }), undefined);
@@ -171,18 +228,35 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
 
       {item.sets.length > 0 && (
         <ol className="gx-sets">
-          {item.sets.map((s) => (
-            <li key={s.id} className={s.isPr ? 'pr' : ''}>
-              <span className="gx-set-n">{s.setNumber}</span>
-              {cardio ? <b>{fmtCardioSet(s)}</b> : <>
-                <b>{fmtKg(s.weight)} × {s.reps}</b>
-                <span className="gx-set-e1rm">1RM {fmtKg(estimate1rm(s.weight, s.reps))}</span>
-              </>}
-              <LevelTag level={s.level} />
-              {s.isPr && <span className="pr-badge">🏆 PR</span>}
-              <button type="button" className="icon-btn" onClick={() => del.mutate(s.id)} aria-label={`Apagar série ${s.setNumber}`}><Icon name="trash" size={15} /></button>
-            </li>
-          ))}
+          {item.sets.map((s) => {
+            const extras = cardio ? fmtCardioExtras(s) : '';
+            return (
+              <Fragment key={s.id}>
+                <li className={s.isPr ? 'pr' : ''}>
+                  <span className="gx-set-n">{s.setNumber}</span>
+                  {cardio ? (
+                    <span className="gx-cardio-main">
+                      <b>{fmtCardioSet(s)}</b>
+                      {extras && <small>{extras}</small>}
+                    </span>
+                  ) : <>
+                    <b>{fmtKg(s.weight)} × {s.reps}</b>
+                    <span className="gx-set-e1rm">1RM {fmtKg(estimate1rm(s.weight, s.reps))}</span>
+                  </>}
+                  <LevelTag level={s.level} />
+                  {s.isPr && <span className="pr-badge">🏆 PR</span>}
+                  {cardio && (
+                    <button type="button" className="icon-btn" aria-label={extras ? 'Editar detalhes da série' : 'Adicionar detalhes da série'} title={extras ? 'Editar detalhes' : 'Calorias, velocidade, ritmo, frequência cardíaca…'}
+                      onClick={() => setOpenDetails(openDetails === s.id ? null : s.id)}>
+                      <Icon name="edit" size={14} />
+                    </button>
+                  )}
+                  <button type="button" className="icon-btn" onClick={() => del.mutate(s.id)} aria-label={`Apagar série ${s.setNumber}`}><Icon name="trash" size={15} /></button>
+                </li>
+                {cardio && openDetails === s.id && <CardioSetDetailsRow set={s} onDone={() => setOpenDetails(null)} />}
+              </Fragment>
+            );
+          })}
         </ol>
       )}
 

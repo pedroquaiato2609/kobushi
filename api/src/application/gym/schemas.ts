@@ -58,9 +58,19 @@ export const setCreateSchema = z.object({
   level: z.enum(LEVELS).nullable().optional(),
   restSeconds: z.number().int().min(0).max(3600).nullable().optional(),
 });
+// Detalhes extras de cardio: preenchidos depois de concluir a série (opcional), não mudam nível nem recorde.
+export const cardioSetDetailsSchema = z.object({
+  caloriesKcal: z.number().int().min(0).max(20000).nullable().optional().describe('calorias gastas na série'),
+  avgSpeedKmh: z.number().min(0).max(100).nullable().optional().describe('velocidade média em km/h'),
+  maxSpeedKmh: z.number().min(0).max(100).nullable().optional().describe('velocidade máxima em km/h'),
+  avgPaceMinKm: z.number().min(0).max(60).nullable().optional().describe('ritmo médio em minutos por km'),
+  maxPaceMinKm: z.number().min(0).max(60).nullable().optional().describe('ritmo máximo (mais rápido) em minutos por km'),
+  avgHeartRate: z.number().int().min(0).max(300).nullable().optional().describe('frequência cardíaca média, em bpm'),
+  maxHeartRate: z.number().int().min(0).max(300).nullable().optional().describe('frequência cardíaca máxima, em bpm'),
+});
 export const setUpdateSchema = z.object({
   reps: z.number().int().min(0).max(1000).optional(), weight: kg.optional(),
   durationSeconds: durationSeconds.nullable().optional(), distanceKm: distanceKm.nullable().optional(),
   level: z.enum(LEVELS).nullable().optional(), restSeconds: z.number().int().min(0).max(3600).nullable().optional(),
-});
+}).merge(cardioSetDetailsSchema);
 export const sessionFinishSchema = z.object({ note: z.string().max(1000).optional(), level: z.enum(LEVELS).nullable().optional() });
