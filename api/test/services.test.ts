@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { ActivityService, StatsService } from '../src/application/services';
-import type { ActivityRepository, ExecutionRepository, MeditationRepository } from '../src/application/ports';
+import { ActivityService, CommuteService, StatsService } from '../src/application/services';
+import type { ActivityRepository, CommuteRepository, ExecutionRepository, MeditationRepository } from '../src/application/ports';
 import { addDays, todayIn } from '../src/domain/dates';
 import { config } from '../src/config';
-import { ValidationError } from '../src/domain/errors';
-import type { Activity, Execution } from '../src/domain/entities';
+import { NotFoundError, ValidationError } from '../src/domain/errors';
+import type { Activity, Commute, Execution } from '../src/domain/entities';
 
 const make = (over: Partial<Activity> = {}): Activity => ({
   id: 'a1', name: 'Leitura', kind: 'goal', timeMode: 'free', period: null, blocks: [], weekdayBlocks: [],
@@ -126,6 +126,51 @@ test('lembrete: remindMinutes e remindTime são alternativas (definir um zera o 
   // remindMinutes não faz sentido fora de horário definido
   const c = await svc.create({ name: 'Leitura', kind: 'goal', timeMode: 'free', remindMinutes: 15 });
   assert.equal(c.remindMinutes, null);
+});
+
+function memoryCommutes(initial: Commute[] = []): CommuteRepository & { rows: Commute[] } {
+  const rows = [...initial];
+  return {
+    rows,
+    async list() { return rows; },
+    async get(id) { return rows.find((r) => r.id === id) ?? null; },
+    async create(d) { const c = { ...d, id: `c${rows.length}`, createdAt: new Date(), updatedAt: new Date() } as Commute; rows.push(c); return c; },
+    async update(id, patch) { const c = rows.find((r) => r.id === id); if (!c) return null; Object.assign(c, patch); return c; },
+    async delete(id) { const i = rows.findIndex((r) => r.id === id); if (i < 0) return false; rows.splice(i, 1); return true; },
+  };
+}
+
+test('deslocamento: só pode ser vinculado a uma atividade existente com horário definido', async () => {
+  const activities = memoryActivities();
+  const commutes = new CommuteService(memoryCommutes(), activities);
+  await assert.rejects(commutes.create({ name: 'Ida', activityId: 'inexistente', direction: 'before', durationMin: 20 }), NotFoundError);
+
+  const flex = await new ActivityService(activities).create({ name: 'Leitura', kind: 'goal', timeMode: 'free' });
+  await assert.rejects(commutes.create({ name: 'Ida', activityId: flex.id, direction: 'before', durationMin: 20 }), ValidationError);
+
+  const fixed = await new ActivityService(activities).create({ name: 'Academia', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '07:00', endTime: '08:00' }] });
+  const c = await commutes.create({ name: 'Ida à academia', activityId: fixed.id, direction: 'before', durationMin: 20 });
+  assert.equal(c.activityId, fixed.id);
+  assert.equal(c.active, true);
+});
+
+test('deslocamento: remindMinutes e remindTime são alternativas (definir um zera o outro) em create e update', async () => {
+  const activities = memoryActivities();
+  const fixed = await new ActivityService(activities).create({ name: 'Academia', kind: 'goal', timeMode: 'fixed', blocks: [{ startTime: '07:00', endTime: '08:00' }] });
+  const commutes = new CommuteService(memoryCommutes(), activities);
+
+  const c = await commutes.create({ name: 'Ida', activityId: fixed.id, direction: 'before', durationMin: 20, remindTime: '06:00', remindMinutes: 10 });
+  assert.equal(c.remindMinutes, 10);
+  assert.equal(c.remindTime, null); // remindMinutes venceu
+
+  const updated = await commutes.update(c.id, { remindTime: '06:30' }); // volta pro horário fixo
+  assert.equal(updated.remindTime, '06:30');
+  assert.equal(updated.remindMinutes, null);
+});
+
+test('deslocamento: apagar um id inexistente falha', async () => {
+  const commutes = new CommuteService(memoryCommutes(), memoryActivities());
+  await assert.rejects(commutes.remove('nada'), NotFoundError);
 });
 
 function statsService(activities: Activity[], executions: Execution[]) {

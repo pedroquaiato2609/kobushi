@@ -1,15 +1,15 @@
 import { addDays } from 'date-fns';
-import type { Activity, CalendarEvent, NotifyChannel, Reminder } from '../api/types';
+import type { Activity, CalendarEvent, Commute, NotifyChannel, Reminder } from '../api/types';
 import { parseTs, parseYmd, ts, ymd } from './dates';
-import { effectiveBlocks, toHHmm, toMin } from './schedule';
+import { commuteBlock, effectiveBlocks, toHHmm, toMin } from './schedule';
 
-export type ReminderKind = 'reminder' | 'activity' | 'event';
+export type ReminderKind = 'reminder' | 'activity' | 'event' | 'commute';
 export interface ReminderItem {
   key: string; kind: ReminderKind; title: string; detail: string;
   at: string; // 'YYYY-MM-DDTHH:mm' do próximo aviso (ou do aviso em questão)
   done: boolean; repeat: 'none' | 'daily' | 'weekly' | 'activity';
   channels: NotifyChannel[];
-  reminder?: Reminder; activity?: Activity; event?: CalendarEvent;
+  reminder?: Reminder; activity?: Activity; event?: CalendarEvent; commute?: Commute;
 }
 
 const weekday = (day: string) => parseYmd(day).getDay();
@@ -29,6 +29,15 @@ export function activityRemindAt(a: Activity, day: string): string | null {
   return first ? `${day}T${toHHmm(Math.max(0, toMin(first.startTime) - a.remindMinutes))}` : null;
 }
 
+/** Horário do aviso de um deslocamento NUM dia: fixo (remindTime), ou calculado a partir do início da janela do dia (remindMinutes). */
+export function commuteRemindAt(c: Commute, activity: Activity, day: string): string | null {
+  if (!c.remindTime && c.remindMinutes == null) return null;
+  const block = commuteBlock(activity, weekday(day), c.direction, c.durationMin);
+  if (!block) return null;
+  if (c.remindTime) return `${day}T${c.remindTime}`;
+  return `${day}T${toHHmm(Math.max(0, toMin(block.startTime) - c.remindMinutes!))}`;
+}
+
 const fromReminder = (r: Reminder, at: string): ReminderItem => ({
   key: `r-${r.id}`, kind: 'reminder', title: r.title, detail: r.body, at, done: r.status === 'done', repeat: r.repeat, channels: r.channels, reminder: r,
 });
@@ -38,9 +47,12 @@ const fromActivity = (a: Activity, at: string): ReminderItem => ({
 const fromEvent = (e: CalendarEvent, at: string): ReminderItem => ({
   key: `e-${e.id}`, kind: 'event', title: e.title, detail: e.location ? `Aviso antes do evento · ${e.location}` : 'Aviso antes do evento', at, done: false, repeat: 'none', channels: e.remindChannels, event: e,
 });
+const fromCommute = (c: Commute, at: string): ReminderItem => ({
+  key: `c-${c.id}`, kind: 'commute', title: c.name, detail: 'Aviso do deslocamento', at, done: false, repeat: 'activity', channels: c.remindChannels, commute: c,
+});
 
 /** Tudo o que vai avisar num dia (para o resumo do dia na agenda). */
-export function remindersOnDay(day: string, reminders: Reminder[], activities: Activity[], events: CalendarEvent[]): ReminderItem[] {
+export function remindersOnDay(day: string, reminders: Reminder[], activities: Activity[], events: CalendarEvent[], commutes: Commute[] = []): ReminderItem[] {
   const out: ReminderItem[] = [];
   for (const r of reminders) {
     const d = r.remindAt.slice(0, 10);
@@ -58,11 +70,19 @@ export function remindersOnDay(day: string, reminders: Reminder[], activities: A
     const at = eventRemindAt(e);
     if (at && at.slice(0, 10) === day) out.push(fromEvent(e, at));
   }
+  const activityById = new Map(activities.map((a) => [a.id, a]));
+  for (const c of commutes) {
+    if (!c.active) continue;
+    const act = activityById.get(c.activityId);
+    if (!act || !act.active || !act.weekdays.includes(weekday(day))) continue;
+    const at = commuteRemindAt(c, act, day);
+    if (at) out.push(fromCommute(c, at));
+  }
   return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
-/** Próximo aviso de cada lembrete, atividade com aviso e evento com aviso; pendentes por data, concluídos no fim. */
-export function upcomingReminders(reminders: Reminder[], activities: Activity[], events: CalendarEvent[], now: Date): ReminderItem[] {
+/** Próximo aviso de cada lembrete, atividade com aviso, evento com aviso e deslocamento com aviso; pendentes por data, concluídos no fim. */
+export function upcomingReminders(reminders: Reminder[], activities: Activity[], events: CalendarEvent[], commutes: Commute[], now: Date): ReminderItem[] {
   const nowTs = ts(now);
   const out: ReminderItem[] = reminders.map((r) => fromReminder(r, r.remindAt));
   for (const a of activities) {
@@ -77,6 +97,18 @@ export function upcomingReminders(reminders: Reminder[], activities: Activity[],
   for (const e of events) {
     const at = eventRemindAt(e);
     if (at && at >= nowTs) out.push(fromEvent(e, at));
+  }
+  const activityById = new Map(activities.map((a) => [a.id, a]));
+  for (const c of commutes) {
+    if (!c.active || (!c.remindTime && c.remindMinutes == null)) continue;
+    const act = activityById.get(c.activityId);
+    if (!act) continue;
+    for (let i = 0; i < 8; i++) {
+      const day = ymd(addDays(now, i));
+      if (!act.active || !act.weekdays.includes(weekday(day))) continue;
+      const at = commuteRemindAt(c, act, day);
+      if (at && at >= nowTs) { out.push(fromCommute(c, at)); break; }
+    }
   }
   return out.sort((a, b) => Number(a.done) - Number(b.done) || a.at.localeCompare(b.at));
 }

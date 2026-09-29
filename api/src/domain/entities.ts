@@ -1,4 +1,4 @@
-import type { ActivityKind, DocKind, Level, NotifyChannel, Period, ProfileLevel, Repeat, TimeMode } from './constants';
+import type { ActivityKind, CommuteDirection, DocKind, Level, NotifyChannel, Period, ProfileLevel, Repeat, TimeMode } from './constants';
 
 // Horário definido (timeMode = 'fixed'): um ou mais blocos (ex.: manhã + tarde), com possíveis exceções por dia.
 export interface TimeBlock { startTime: string; endTime: string | null }
@@ -122,6 +122,24 @@ export interface Stats {
   currentStreak: number;
   meditation: MeditationSession[];
 }
+
+// Deslocamento: trecho de transporte recorrente (ex.: ida/volta da academia), vinculado a uma atividade-âncora
+// de horário definido. Não guarda horário próprio — é derivado a cada dia a partir do(s) bloco(s) efetivos da
+// atividade âncora nesse dia (ver commuteBlock em ./schedule). Sem princípio/níveis/execução: só ocupa tempo.
+export interface Commute {
+  id: string;
+  name: string;
+  activityId: string; // atividade âncora; precisa ter timeMode = 'fixed' (validado em CommuteService)
+  direction: CommuteDirection; // before = termina no início do 1º bloco do dia; after = começa no fim do último
+  durationMin: number;
+  active: boolean;
+  remindTime: string | null; // 'HH:mm' — alternativa a remindMinutes (mutuamente exclusivos)
+  remindMinutes: 5 | 10 | 15 | 30 | 60 | null; // minutos antes do início do próprio deslocamento naquele dia
+  remindChannels: NotifyChannel[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+export type NewCommute = Omit<Commute, 'id' | 'createdAt' | 'updatedAt'>;
 
 export interface Reminder {
   id: string;

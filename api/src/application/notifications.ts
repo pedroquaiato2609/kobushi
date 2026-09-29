@@ -2,10 +2,10 @@
 import type { NotifyChannel } from '../domain/constants';
 import { nextOccurrence, nowLocalTs, toMinutes, weekdayOf } from '../domain/dates';
 import { NotFoundError } from '../domain/errors';
-import { effectiveBlocks } from '../domain/schedule';
+import { commuteBlock, effectiveBlocks } from '../domain/schedule';
 import type { AppNotification, Reminder } from '../domain/entities';
 import type {
-  ActivityRepository, EventRepository, ExecutionRepository, NotificationLogRepository, NotificationRepository, ReminderRepository,
+  ActivityRepository, CommuteRepository, EventRepository, ExecutionRepository, NotificationLogRepository, NotificationRepository, ReminderRepository,
 } from './ports';
 import type { ReminderCreateInput, ReminderUpdateInput } from './schemas';
 
@@ -79,7 +79,7 @@ export class ReminderScheduler {
   private jobs: { name: string; everyMs: number; run: (now: Date) => Promise<void>; last: number }[] = [];
 
   constructor(private deps: {
-    reminders: ReminderRepository; activities: ActivityRepository; executions: ExecutionRepository;
+    reminders: ReminderRepository; activities: ActivityRepository; commutes: CommuteRepository; executions: ExecutionRepository;
     events: EventRepository; log: NotificationLogRepository; notifier: Notifier; timezone: string;
     onError?: (msg: string, e: unknown) => void;
   }) {}
@@ -94,7 +94,7 @@ export class ReminderScheduler {
   stop() { if (this.timer) clearInterval(this.timer); this.timer = null; }
 
   async tick(now = new Date()): Promise<void> {
-    const { reminders, activities, executions, events, log, notifier, timezone } = this.deps;
+    const { reminders, activities, commutes, executions, events, log, notifier, timezone } = this.deps;
     const local = nowLocalTs(timezone, now); // 'YYYY-MM-DDTHH:mm'
     const today = local.slice(0, 10);
     const minutes = toMinutes(local.slice(11));
@@ -110,7 +110,9 @@ export class ReminderScheduler {
     // 2) atividades com horário de aviso: só se hoje se aplica, ainda não foi registrada e a janela (2 h) não passou.
     // remindTime = horário fixo; remindMinutes = alternativa que acompanha o 1º bloco efetivo do dia (varia por dia).
     const weekdayToday = weekdayOf(today);
-    const due = (await activities.list()).filter((a) => a.active && (a.remindTime || a.remindMinutes != null) && a.weekdays.includes(weekdayToday));
+    const allActivities = await activities.list();
+    const activitiesById = new Map(allActivities.map((a) => [a.id, a]));
+    const due = allActivities.filter((a) => a.active && (a.remindTime || a.remindMinutes != null) && a.weekdays.includes(weekdayToday));
     if (due.length > 0) {
       const done = new Set((await executions.listRange(today, today)).map((e) => e.activityId));
       for (const a of due) {
@@ -146,6 +148,23 @@ export class ReminderScheduler {
         title: ev.title,
         body: `Começa às ${ev.start.slice(11)}${ev.location ? ` · ${ev.location}` : ''}`,
         link: '/agenda', source: 'event', channels: ev.remindChannels,
+      });
+    }
+
+    // 4) deslocamentos com aviso configurado: sem checagem de "já executado" (não têm execução própria).
+    const dueCommutes = (await commutes.list()).filter((c) => c.active && (c.remindTime || c.remindMinutes != null));
+    for (const c of dueCommutes) {
+      const act = activitiesById.get(c.activityId);
+      if (!act || !act.active || !act.weekdays.includes(weekdayToday)) continue;
+      const block = commuteBlock(act, weekdayToday, c.direction, c.durationMin);
+      if (!block) continue;
+      const at = c.remindMinutes != null ? toMinutes(block.startTime) - c.remindMinutes : toMinutes(c.remindTime as string);
+      if (minutes < at || minutes - at > 120) continue;
+      if (!(await log.claim(`commute:${c.id}:${today}`))) continue;
+      await notifier.notify({
+        title: `Hora de: ${c.name}`,
+        body: `Deslocamento de ${c.durationMin} min · ${block.startTime}–${block.endTime}.`,
+        link: '/deslocamentos', source: 'commute', channels: c.remindChannels,
       });
     }
   }

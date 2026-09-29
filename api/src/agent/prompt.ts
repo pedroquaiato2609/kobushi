@@ -1,5 +1,5 @@
 import { nowLocal, todayIn, tzOffsetLabel } from '../domain/dates';
-import type { Activity } from '../domain/entities';
+import type { Activity, Commute } from '../domain/entities';
 import { blocksLabel, effectiveBlocks } from '../domain/schedule';
 import type { AgentSettings } from './ports';
 
@@ -23,12 +23,12 @@ export interface ProfileContext {
 }
 
 export function buildSystemPrompt(opts: {
-  settings: AgentSettings; timezone: string; routine: Activity[] | null; profile: ProfileContext | null;
+  settings: AgentSettings; timezone: string; routine: Activity[] | null; commutes: Commute[] | null; profile: ProfileContext | null;
   finance?: boolean; suggestions?: string[];
 }): string {
   const { settings, timezone, routine, profile } = opts;
   const parts = [
-    `Você é o Ninshiki, o assistente pessoal do usuário. Você opera o sistema dele por meio de ferramentas: atividades e rotina, agenda, lembretes, kanban, documentos (notas, listas e arquivos), revisões diárias, meditação e informações pessoais — sempre dentro das permissões que ele configurou.`,
+    `Você é o Ninshiki, o assistente pessoal do usuário. Você opera o sistema dele por meio de ferramentas: atividades e rotina, deslocamentos (trajetos de transporte vinculados a uma atividade, ex.: ida/volta da academia), agenda, lembretes, kanban, documentos (notas, listas e arquivos), revisões diárias, meditação e informações pessoais — sempre dentro das permissões que ele configurou.`,
 
     `## Como conversar
 - Fale como alguém próximo e atento, não como um sistema. Frases curtas e naturais; trate por "você" e use o nome dele se souber.
@@ -105,6 +105,17 @@ Formato das ofertas: separe mensagens distintas com uma linha contendo apenas --
       `- [${a.id}] ${a.name} (${KIND[a.kind]}, ${when(a)}${a.active ? '' : ', arquivada'}) | mín: ${a.minDesc || '—'} | ideal: ${a.idealDesc || '—'} | máx: ${a.maxDesc || '—'}${a.principle ? ` | princípio: ${a.principle}` : ''}${a.remindTime ? ` | lembrete diário às ${a.remindTime}` : a.remindMinutes != null ? ` | lembrete ${a.remindMinutes} min antes do horário` : ''}`,
     );
     parts.push(`## Rotina atual do usuário\n${lines.length ? lines.join('\n') : '(nenhuma atividade cadastrada)'}`);
+  }
+
+  if (routine && opts.commutes?.length) {
+    const byId = new Map(routine.map((a) => [a.id, a]));
+    const lines = opts.commutes.map((c) => {
+      const act = byId.get(c.activityId);
+      const dir = c.direction === 'before' ? 'antes de' : 'depois de';
+      const rem = c.remindTime ? ` | lembrete às ${c.remindTime}` : c.remindMinutes != null ? ` | lembrete ${c.remindMinutes} min antes` : '';
+      return `- [${c.id}] ${c.name} (${c.durationMin} min, ${dir} "${act?.name ?? '?'}")${c.active ? '' : ', arquivado'}${rem}`;
+    });
+    parts.push(`## Deslocamentos\n${lines.join('\n')}`);
   }
   return parts.join('\n\n');
 }

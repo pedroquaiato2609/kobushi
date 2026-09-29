@@ -1,5 +1,5 @@
 // Encaixe dos objetivos sem horário fixo no calendário. Função pura (sem React): espelha api/src/domain/schedule.ts.
-import type { Activity, Period, TimeBlock } from '../api/types';
+import type { Activity, CommuteDirection, Period, TimeBlock } from '../api/types';
 
 export const PERIOD_WINDOW: Record<Period, readonly [number, number]> = { morning: [360, 720], afternoon: [720, 1080], night: [1080, 1380] };
 export const FREE_WINDOW = [360, 1380] as const; // 06:00–23:00
@@ -23,6 +23,24 @@ type Timed = Pick<Activity, 'blocks' | 'weekdayBlocks'>;
 export function effectiveBlocks(a: Timed, weekday: number): TimeBlock[] {
   const override = a.weekdayBlocks.find((w) => w.weekday === weekday);
   return override ? override.blocks : a.blocks;
+}
+
+export interface CommuteWindow { startTime: string; endTime: string }
+
+/**
+ * Janela do deslocamento NUM dia da semana, derivada do(s) bloco(s) efetivos da atividade âncora nesse dia.
+ * Espelha commuteBlock de api/src/domain/schedule.ts (o teste de paridade garante que não divergem).
+ */
+export function commuteBlock(a: Timed, weekday: number, direction: CommuteDirection, durationMin: number): CommuteWindow | null {
+  const blocks = effectiveBlocks(a, weekday);
+  if (blocks.length === 0) return null;
+  if (direction === 'before') {
+    const first = blocks[0];
+    return { startTime: toHHmm(Math.max(0, toMin(first.startTime) - durationMin)), endTime: first.startTime };
+  }
+  const last = blocks[blocks.length - 1];
+  if (!last.endTime) return null;
+  return { startTime: last.endTime, endTime: toHHmm(Math.min(1440, toMin(last.endTime) + durationMin)) };
 }
 
 export interface Busy { start: number; end: number }

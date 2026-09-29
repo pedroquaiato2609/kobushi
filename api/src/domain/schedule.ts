@@ -1,5 +1,5 @@
 // Janelas de horário dos objetivos sem horário fixo. Espelhado em web/src/lib/schedule.ts (o teste garante que não divergem).
-import type { Period } from './constants';
+import type { CommuteDirection, Period } from './constants';
 
 export const PERIOD_WINDOW: Record<Period, readonly [number, number]> = { morning: [360, 720], afternoon: [720, 1080], night: [1080, 1380] };
 export const FREE_WINDOW = [360, 1380] as const; // 06:00–23:00
@@ -27,6 +27,27 @@ export function windowFor(a: Windowed): [number, number] | null {
   const start = Math.max(pStart, a.notBefore ? toMin(a.notBefore) : 0);
   const end = Math.min(pEnd, a.notAfter ? toMin(a.notAfter) : 1440);
   return end - start >= Math.min(a.durationMin, 5) && end > start ? [start, end] : null;
+}
+
+export interface CommuteWindow { startTime: string; endTime: string }
+
+/**
+ * Janela do deslocamento NUM dia da semana, derivada do(s) bloco(s) efetivos da atividade âncora nesse dia.
+ * "before": termina quando o 1º bloco começa (ida). "after": começa quando o último bloco termina (volta) —
+ * null se esse bloco não tiver hora de fim (aberto) ou se a atividade não tiver bloco algum nesse dia. O
+ * chamador já deve ter checado que a atividade está ativa e que o dia está em activity.weekdays (mesma
+ * convenção de effectiveBlocks, que também não se autoverifica).
+ */
+export function commuteBlock(a: Timed, weekday: number, direction: CommuteDirection, durationMin: number): CommuteWindow | null {
+  const blocks = effectiveBlocks(a, weekday);
+  if (blocks.length === 0) return null;
+  if (direction === 'before') {
+    const first = blocks[0];
+    return { startTime: toHHmm(Math.max(0, toMin(first.startTime) - durationMin)), endTime: first.startTime };
+  }
+  const last = blocks[blocks.length - 1];
+  if (!last.endTime) return null;
+  return { startTime: last.endTime, endTime: toHHmm(Math.min(1440, toMin(last.endTime) + durationMin)) };
 }
 
 /** Lê o JSON da IA e confere se o início cabe na janela. Devolve null se a resposta não presta. */

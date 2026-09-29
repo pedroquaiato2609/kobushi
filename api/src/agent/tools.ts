@@ -21,12 +21,12 @@ import type { DocumentService } from '../application/library';
 import type { ReminderService } from '../application/notifications';
 import type { ProfileService } from '../application/security';
 import type {
-  ActivityService, BoardService, EventService, ExecutionService, MeditationService, ReviewService, StatsService,
+  ActivityService, BoardService, CommuteService, EventService, ExecutionService, MeditationService, ReviewService, StatsService,
 } from '../application/services';
 import {
-  activityCreateSchema, activityUpdateSchema, cardCreateSchema, cardMoveSchema, cardUpdateSchema, dateStr, docCreateSchema,
-  docUpdateSchema, eventCreateSchema, eventUpdateSchema, executionClearSchema, executionSetSchema, folderCreateSchema, id,
-  meditationCreateSchema, nameSchema, rangeSchema, reminderCreateSchema, reviewSaveSchema,
+  activityCreateSchema, activityUpdateSchema, cardCreateSchema, cardMoveSchema, cardUpdateSchema, commuteCreateSchema,
+  commuteUpdateSchema, dateStr, docCreateSchema, docUpdateSchema, eventCreateSchema, eventUpdateSchema, executionClearSchema,
+  executionSetSchema, folderCreateSchema, id, meditationCreateSchema, nameSchema, rangeSchema, reminderCreateSchema, reviewSaveSchema,
 } from '../application/schemas';
 
 export interface ToolServices {
@@ -38,6 +38,7 @@ export interface ToolServices {
   meditation: MeditationService;
   stats: StatsService;
   reminders: ReminderService;
+  commutes: CommuteService;
   documents: DocumentService;
   profile: ProfileService;
   finance: FinanceService;
@@ -112,6 +113,20 @@ export function buildTools(s: ToolServices): ToolDefinition[] {
     tool({ name: 'delete_reminder', resource: 'reminder', action: 'delete', label: 'um lembrete',
       description: 'Apaga um lembrete avulso.',
       schema: idArgs, run: async ({ id }) => { await s.reminders.remove(id); return deleted; } }),
+
+    // Deslocamentos ----------------------------------------------------------------
+    tool({ name: 'list_commutes', resource: 'commute', action: 'read', label: 'os deslocamentos',
+      description: 'Lista os deslocamentos (trechos de transporte recorrentes, ex.: ida à academia), cada um vinculado a uma atividade de horário definido.',
+      schema: z.object({}), run: () => s.commutes.list() }),
+    tool({ name: 'create_commute', resource: 'commute', action: 'create', label: 'um deslocamento',
+      description: 'Cria um deslocamento vinculado a uma atividade existente com horário definido (timeMode = fixed). direction=before termina quando o 1º bloco do dia da atividade começa (ida); after começa quando o último bloco termina (volta).',
+      schema: commuteCreateSchema, run: (a) => s.commutes.create(a) }),
+    tool({ name: 'update_commute', resource: 'commute', action: 'update', label: 'um deslocamento',
+      description: 'Edita um deslocamento existente (informe só os campos a alterar).',
+      schema: commuteUpdateSchema.extend({ id }), run: ({ id, ...patch }) => s.commutes.update(id, patch) }),
+    tool({ name: 'delete_commute', resource: 'commute', action: 'delete', label: 'um deslocamento',
+      description: 'Apaga um deslocamento.',
+      schema: idArgs, run: async ({ id }) => { await s.commutes.remove(id); return deleted; } }),
 
     // Kanban: quadros e colunas ----------------------------------------------------
     tool({ name: 'list_boards', resource: 'board', action: 'read', label: 'os quadros',

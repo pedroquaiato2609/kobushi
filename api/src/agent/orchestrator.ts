@@ -1,6 +1,6 @@
 import { config } from '../config';
 import { NotFoundError } from '../domain/errors';
-import type { ActivityService } from '../application/services';
+import type { ActivityService, CommuteService } from '../application/services';
 import type { ProfileService } from '../application/security';
 import { fitHistory } from './history';
 import { buildSystemPrompt } from './prompt';
@@ -56,6 +56,7 @@ export class AgentOrchestrator {
     private policy: PermissionPolicy,
     private tools: ToolDefinition[],
     private activities: ActivityService,
+    private commutes: CommuteService,
     private profile: ProfileService,
     private pendingSuggestions: (userId: string) => Promise<string[]> = async () => [],
   ) {
@@ -89,6 +90,7 @@ export class AgentOrchestrator {
         system: buildSystemPrompt({
           settings, timezone: config.timezone,
           routine: await this.routineContext(settings.includeRoutineContext),
+          commutes: await this.commutesContext(settings.includeRoutineContext),
           profile: await this.profileContext(),
           finance, suggestions,
         }),
@@ -160,6 +162,12 @@ export class AgentOrchestrator {
   private async routineContext(enabled: boolean) {
     if (!enabled || !(await this.allowed('list_activities'))) return null;
     return this.activities.list();
+  }
+
+  /** Mesma trava da rotina: o texto do deslocamento cita o nome da atividade âncora. */
+  private async commutesContext(enabled: boolean) {
+    if (!enabled || !(await this.allowed('list_activities'))) return null;
+    return this.commutes.list();
   }
 
   /** Informações gerais do usuário vão no prompt; as protegidas, só os títulos. */

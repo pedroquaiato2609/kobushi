@@ -3,7 +3,7 @@
 // Regra: nada de .default() aqui — defaults são aplicados nos serviços, senão um PATCH
 // parcial sobrescreveria campos com valores padrão.
 import { z } from 'zod';
-import { ACTIVITY_KINDS, LEVELS, NOTIFY_CHANNELS, PERIODS, REPEATS, TIME_MODES } from '../domain/constants';
+import { ACTIVITY_KINDS, COMMUTE_DIRECTIONS, LEVELS, NOTIFY_CHANNELS, PERIODS, REPEATS, TIME_MODES } from '../domain/constants';
 
 export const id = z.string().regex(/^[0-9a-fA-F-]{36}$/, 'id inválido');
 export const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'use o formato YYYY-MM-DD').describe('YYYY-MM-DD');
@@ -120,6 +120,21 @@ export const reminderCreateSchema = z.object({
 export const reminderUpdateSchema = reminderCreateSchema.omit({ activityId: true }).partial().extend({
   done: z.boolean().optional().describe('true marca como concluído; false reativa'),
 });
+
+// Deslocamentos -------------------------------------------------------------
+export const commuteCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  activityId: id.describe('atividade âncora; precisa ter timeMode = fixed'),
+  direction: z.enum(COMMUTE_DIRECTIONS).describe('before = ida, termina quando o 1º bloco do dia da atividade começa; after = volta, começa quando o último bloco termina'),
+  durationMin: z.number().int().min(5).max(240),
+  active: z.boolean().optional(),
+  remindTime: timeStr.nullable().optional().describe('horário fixo do aviso; null desliga. Alternativa a remindMinutes (use só um dos dois)'),
+  remindMinutes: z.union([z.literal(5), z.literal(10), z.literal(15), z.literal(30), z.literal(60)]).nullable().optional().describe('alternativa a remindTime: avisa X minutos antes do início do deslocamento naquele dia'),
+  remindChannels: channels.optional(),
+});
+export const commuteUpdateSchema = commuteCreateSchema.partial();
+export type CommuteCreateInput = z.infer<typeof commuteCreateSchema>;
+export type CommuteUpdateInput = z.infer<typeof commuteUpdateSchema>;
 
 // Perfil e cofre -----------------------------------------------------------
 export const profileCreateSchema = z.object({

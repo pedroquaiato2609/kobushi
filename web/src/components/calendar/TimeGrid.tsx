@@ -5,7 +5,7 @@ import { cssVars, eventColor } from '../../lib/colors';
 import { cap, fmt, ymd } from '../../lib/dates';
 import { LEVEL_LABEL } from '../../lib/labels';
 import { assignLanes, layoutDay, type Placed } from '../../lib/layout';
-import type { Occurrence } from '../../lib/occurrences';
+import type { CommuteOccurrence, Occurrence } from '../../lib/occurrences';
 import { effectiveBlocks, placeFlexible, toHHmm, windowFor, type Placement } from '../../lib/schedule';
 
 const HOUR = 48; // px por hora
@@ -13,13 +13,14 @@ const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slic
 const shortDay = (d: Date) => cap(fmt(d, 'EEEE').split('-')[0]).slice(0, 3);
 const status = (o: Occurrence) => `${o.activity.name} — ${o.level ? LEVEL_LABEL[o.level] : 'a fazer'}`;
 
-/** Objetivos sem horário fixo: encaixados no período/janela, desviando de obrigações, eventos e uns dos outros. */
-function planGoals(occ: Occurrence[], events: Placed[], weekday: number): { o: Occurrence; p: Placement }[] {
+/** Objetivos sem horário fixo: encaixados no período/janela, desviando de obrigações, deslocamentos, eventos e uns dos outros. */
+function planGoals(occ: Occurrence[], commuteOcc: CommuteOccurrence[], events: Placed[], weekday: number): { o: Occurrence; p: Placement }[] {
   const busy = [
     ...occ.filter((o) => o.activity.timeMode === 'fixed').flatMap((o) => effectiveBlocks(o.activity, weekday).map((b) => {
       const start = toMin(b.startTime);
       return { start, end: b.endTime ? toMin(b.endTime) : start + 60 };
     })),
+    ...commuteOcc.map((c) => ({ start: toMin(c.block.startTime), end: toMin(c.block.endTime) })),
     ...events.map((e) => ({ start: e.s, end: e.e })),
   ];
   const flex = occ.filter((o) => o.activity.timeMode !== 'fixed').flatMap((o) => {
@@ -35,8 +36,9 @@ function planGoals(occ: Occurrence[], events: Placed[], weekday: number): { o: O
  * viram uma faixa fina na lateral da coluna. Dia (um dia): linha de resumo acima (`dayLine`) e faixa suave com o nome.
  * Só os eventos têm blocos cheios: é neles que o olhar deve cair.
  */
-export function TimeGrid({ days, events, actsOn, selected, dayLine, onOpenDay, onSlot, onEvent }: {
-  days: Date[]; events: CalendarEvent[]; actsOn?: (date: string) => Occurrence[]; selected: Date; dayLine?: ReactNode;
+export function TimeGrid({ days, events, actsOn, commutesOn, selected, dayLine, onOpenDay, onSlot, onEvent }: {
+  days: Date[]; events: CalendarEvent[]; actsOn?: (date: string) => Occurrence[]; commutesOn?: (date: string) => CommuteOccurrence[];
+  selected: Date; dayLine?: ReactNode;
   onOpenDay: (d: Date) => void; onSlot: (start: Date) => void; onEvent: (ev: CalendarEvent) => void;
 }) {
   const single = days.length === 1;
@@ -80,6 +82,7 @@ export function TimeGrid({ days, events, actsOn, selected, dayLine, onOpenDay, o
           </div>
           {days.map((d) => {
             const dayOcc = actsOn?.(ymd(d)) ?? [];
+            const dayCommutes = commutesOn?.(ymd(d)) ?? [];
             const placed = layoutDay(`${ymd(d)}T00:00`, `${ymd(addDays(d, 1))}T00:00`, events);
             const weekday = d.getDay();
             return (
@@ -105,8 +108,17 @@ export function TimeGrid({ days, events, actsOn, selected, dayLine, onOpenDay, o
                   ? <div key={`${o.activity.id}-${i}`} className={`tg-band ${o.level ?? 'todo'}`} style={box} title={status(o)}><b>{o.activity.name}</b><span>{t.startTime}–{t.endTime ?? ''}</span></div>
                   : <i key={`${o.activity.id}-${i}`} className={`tg-rail ${o.level ?? 'todo'}`} style={{ ...box, left: `calc(${lane * 5}px)`, width: 4 }} title={status(o)} />;
               })}
+              {dayCommutes.map((co) => {
+                const s = toMin(co.block.startTime), e = toMin(co.block.endTime);
+                const box = { top: (s / 60) * HOUR, height: Math.max(((e - s) / 60) * HOUR, 22) };
+                return (
+                  <div key={co.commute.id} className="tg-commute" style={box} title={`${co.commute.name} · ${co.block.startTime}–${co.block.endTime}`}>
+                    <b>{co.commute.name}</b><span>{co.block.startTime}–{co.block.endTime}</span>
+                  </div>
+                );
+              })}
               {/* dia lotado (sem 1 min de folga em lugar nenhum): não desenha, pra não inventar um horário falso que ia cair em cima de outra coisa — o objetivo continua visível na ficha acima */}
-              {assignLanes(planGoals(dayOcc, placed, weekday).filter(({ p }) => p.fitted).map(({ o, p }) => ({ o, p, s: p.start, e: p.end }))).map(({ o, p, s, e, lane, lanes }) => {
+              {assignLanes(planGoals(dayOcc, dayCommutes, placed, weekday).filter(({ p }) => p.fitted).map(({ o, p }) => ({ o, p, s: p.start, e: p.end }))).map(({ o, p, s, e, lane, lanes }) => {
                 const box = {
                   top: (s / 60) * HOUR, height: Math.max(((e - s) / 60) * HOUR, 22),
                   left: `calc(${(lane / lanes) * 100}%)`, width: `calc(${100 / lanes}%)`,

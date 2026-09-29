@@ -6,15 +6,15 @@ import { NotFoundError, ValidationError } from '../domain/errors';
 import { sanitizeRichHtml } from './richText';
 import type { Level } from '../domain/constants';
 import type {
-  Activity, ActivityStats, BoardFull, CalendarEvent, DayPlanItem, DayStats, MeditationSession,
-  ActivityMatrixRow, NewActivity, ReviewFields, Stats, TimeBlock,
+  Activity, ActivityStats, BoardFull, CalendarEvent, Commute, DayPlanItem, DayStats, MeditationSession,
+  ActivityMatrixRow, NewActivity, NewCommute, ReviewFields, Stats, TimeBlock,
 } from '../domain/entities';
 import type {
-  ActivityRepository, BoardRepository, EventRepository, ExecutionRepository, MeditationRepository, ReviewRepository,
+  ActivityRepository, BoardRepository, CommuteRepository, EventRepository, ExecutionRepository, MeditationRepository, ReviewRepository,
 } from './ports';
 import type {
-  ActivityCreateInput, ActivityUpdateInput, CardCreateInput, CardUpdateInput, EventCreateInput, EventUpdateInput,
-  MeditationCreateInput,
+  ActivityCreateInput, ActivityUpdateInput, CardCreateInput, CardUpdateInput, CommuteCreateInput, CommuteUpdateInput,
+  EventCreateInput, EventUpdateInput, MeditationCreateInput,
 } from './schemas';
 
 const found = <T>(value: T | null, what: string): T => {
@@ -176,6 +176,50 @@ export class EventService {
 
   async remove(id: string) {
     if (!(await this.repo.delete(id))) throw new NotFoundError('Evento');
+  }
+}
+
+// Deslocamentos ----------------------------------------------------------------
+// Trecho de transporte recorrente (ex.: "Ida à academia"), sempre vinculado a uma atividade-âncora de
+// horário definido. Sem princípio/níveis/execução: o horário é derivado da atividade, nunca gravado aqui.
+export class CommuteService {
+  constructor(private repo: CommuteRepository, private activities: ActivityRepository) {}
+
+  list() { return this.repo.list(); }
+  async get(id: string) { return found(await this.repo.get(id), 'Deslocamento'); }
+
+  async create(input: CommuteCreateInput): Promise<Commute> {
+    await this.checkActivity(input.activityId);
+    return this.repo.create(this.normalize({
+      name: input.name, activityId: input.activityId, direction: input.direction, durationMin: input.durationMin,
+      active: input.active ?? true,
+      remindTime: input.remindTime ?? null, remindMinutes: input.remindMinutes ?? null, remindChannels: input.remindChannels ?? [],
+    }));
+  }
+
+  async update(id: string, patch: CommuteUpdateInput): Promise<Commute> {
+    const current = await this.get(id);
+    if (patch.activityId) await this.checkActivity(patch.activityId);
+    const clean = stripUndefined(patch) as Partial<NewCommute>;
+    if ('remindTime' in clean && !('remindMinutes' in clean)) clean.remindMinutes = null;
+    if ('remindMinutes' in clean && !('remindTime' in clean)) clean.remindTime = null;
+    const merged = this.normalize({ ...current, ...clean } as NewCommute);
+    if (['remindTime', 'remindMinutes'].some((k) => k in clean)) { clean.remindTime = merged.remindTime; clean.remindMinutes = merged.remindMinutes; }
+    return found(await this.repo.update(id, clean), 'Deslocamento');
+  }
+
+  async remove(id: string) {
+    if (!(await this.repo.delete(id))) throw new NotFoundError('Deslocamento');
+  }
+
+  private async checkActivity(activityId: string) {
+    const act = await this.activities.get(activityId);
+    if (!act) throw new NotFoundError('Atividade');
+    if (act.timeMode !== 'fixed') throw new ValidationError('O deslocamento só pode ser vinculado a uma atividade com horário definido.');
+  }
+
+  private normalize(c: NewCommute): NewCommute {
+    return { ...c, remindTime: c.remindMinutes != null ? null : c.remindTime };
   }
 }
 

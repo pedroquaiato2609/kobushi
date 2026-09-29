@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { dateRangeSchema, id, reminderCreateSchema, reminderUpdateSchema } from '../../application/schemas';
+import { commuteCreateSchema, commuteUpdateSchema, dateRangeSchema, id, reminderCreateSchema, reminderUpdateSchema } from '../../application/schemas';
 import type { Container } from '../../container';
 import { features } from '../../config';
 import { AppError } from '../../domain/errors';
@@ -23,6 +23,12 @@ export function lifeRoutes(app: FastifyInstance, c: Container) {
   app.post('/reminders', async (req, reply) => reply.code(201).send(await c.reminders.create(reminderCreateSchema.parse(req.body))));
   app.patch('/reminders/:id', async (req) => c.reminders.update(pid(req), reminderUpdateSchema.parse(req.body)));
   app.delete('/reminders/:id', async (req, reply) => { await c.reminders.remove(pid(req)); return reply.code(204).send(); });
+
+  // Deslocamentos
+  app.get('/commutes', async () => c.commutes.list());
+  app.post('/commutes', async (req, reply) => reply.code(201).send(await c.commutes.create(commuteCreateSchema.parse(req.body))));
+  app.patch('/commutes/:id', async (req) => c.commutes.update(pid(req), commuteUpdateSchema.parse(req.body)));
+  app.delete('/commutes/:id', async (req, reply) => { await c.commutes.remove(pid(req)); return reply.code(204).send(); });
 
   // Caixa de entrada
   app.get('/notifications', async (req) => {

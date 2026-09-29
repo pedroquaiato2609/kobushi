@@ -8,6 +8,7 @@ import { Logo } from './components/Logo';
 import { TOUR_KEY, Tour } from './components/Tour';
 import ActivitiesPage from './pages/ActivitiesPage';
 import AgendaPage from './pages/AgendaPage';
+import CommutesPage from './pages/CommutesPage';
 import DashboardPage from './pages/DashboardPage';
 import DocumentsPage from './pages/DocumentsPage';
 import FinancePage from './pages/FinancePage';
@@ -34,6 +35,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
       { to: '/', label: 'Home', icon: 'home', tour: 'nav-home', end: true, primary: true },
       { to: '/agenda', label: 'Agenda', icon: 'calendar', tour: 'nav-agenda', primary: true },
       { to: '/atividades', label: 'Atividades', icon: 'target', tour: 'nav-activities', primary: true },
+      { to: '/deslocamentos', label: 'Deslocamentos', icon: 'car', tour: 'nav-commutes' },
       { to: '/lembretes', label: 'Lembretes', icon: 'bell', tour: 'nav-reminders' },
       { to: '/principios', label: 'Princípios', icon: 'shield', tour: 'nav-principios' },
     ],
@@ -152,6 +154,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/agenda" element={<AgendaPage />} />
           <Route path="/atividades" element={<ActivitiesPage />} />
+          <Route path="/deslocamentos" element={<CommutesPage />} />
           <Route path="/lembretes" element={<RemindersPage />} />
           <Route path="/documentos" element={<DocumentsPage />} />
           <Route path="/financas" element={<FinancePage />} />

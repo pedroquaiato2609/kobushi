@@ -3,9 +3,10 @@ import { addDays } from 'date-fns';
 import { useMemo, useState } from 'react';
 import { api } from '../api/client';
 import { useAction } from '../api/hooks';
-import type { Activity, CalendarEvent, Reminder } from '../api/types';
+import type { Activity, CalendarEvent, Commute, Reminder } from '../api/types';
 import { ActivityModal } from '../components/ActivityModal';
 import { EventModal } from '../components/calendar/EventModal';
+import { CommuteModal } from '../components/CommuteModal';
 import { useConfirm } from '../components/ConfirmProvider';
 import { Icon } from '../components/Icon';
 import { PageHeader } from '../components/PageHeader';
@@ -16,8 +17,8 @@ import { CHANNEL_LABEL, REPEAT_LABEL } from '../lib/labels';
 import { upcomingReminders, type ReminderItem, type ReminderKind } from '../lib/reminders';
 
 type Filter = 'all' | ReminderKind | 'done';
-const FILTERS: [Filter, string][] = [['all', 'Todos'], ['reminder', 'Avulsos'], ['activity', 'Atividades'], ['event', 'Eventos'], ['done', 'Já avisados']];
-const KIND_TAG: Record<ReminderKind, string> = { reminder: 'Lembrete', activity: 'Atividade', event: 'Evento' };
+const FILTERS: [Filter, string][] = [['all', 'Todos'], ['reminder', 'Avulsos'], ['activity', 'Atividades'], ['commute', 'Deslocamentos'], ['event', 'Eventos'], ['done', 'Já avisados']];
+const KIND_TAG: Record<ReminderKind, string> = { reminder: 'Lembrete', activity: 'Atividade', commute: 'Deslocamento', event: 'Evento' };
 
 function dayHeading(at: string, todayStr: string, tomorrowStr: string) {
   const d = at.slice(0, 10);
@@ -34,6 +35,7 @@ export default function RemindersPage() {
   const now = useMemo(() => new Date(), []);
   const reminders = useQuery({ queryKey: ['reminders'], queryFn: () => api.get<Reminder[]>('/reminders') });
   const activities = useQuery({ queryKey: ['activities'], queryFn: () => api.get<Activity[]>('/activities') });
+  const commutes = useQuery({ queryKey: ['commutes'], queryFn: () => api.get<Commute[]>('/commutes') });
   const events = useQuery({
     queryKey: ['events', 'reminders-60d'],
     queryFn: () => api.get<CalendarEvent[]>(`/events?from=${encodeURIComponent(ts(now))}&to=${encodeURIComponent(ts(addDays(now, 60)))}`),
@@ -45,8 +47,8 @@ export default function RemindersPage() {
   const toggleDone = useAction((v: { id: string; done: boolean }) => api.patch(`/reminders/${v.id}`, { done: v.done }));
 
   const all = useMemo(
-    () => upcomingReminders(reminders.data ?? [], activities.data ?? [], events.data ?? [], now),
-    [reminders.data, activities.data, events.data, now],
+    () => upcomingReminders(reminders.data ?? [], activities.data ?? [], events.data ?? [], commutes.data ?? [], now),
+    [reminders.data, activities.data, events.data, commutes.data, now],
   );
   const list = all.filter((i) => (filter === 'all' ? !i.done : filter === 'done' ? i.done : !i.done && i.kind === filter));
 
@@ -63,7 +65,7 @@ export default function RemindersPage() {
   const pending = all.filter((i) => !i.done);
   const next = pending[0];
   const recurring = pending.filter((i) => i.repeat !== 'none').length;
-  const loading = reminders.isLoading || activities.isLoading;
+  const loading = reminders.isLoading || activities.isLoading || commutes.isLoading;
 
   const open = (i: ReminderItem) => setEditing({ kind: i.kind, item: i });
 
@@ -89,7 +91,7 @@ export default function RemindersPage() {
         </div>
       </div>
 
-      <ErrorText error={reminders.error ?? activities.error ?? events.error ?? remove.error ?? toggleDone.error} />
+      <ErrorText error={reminders.error ?? activities.error ?? commutes.error ?? events.error ?? remove.error ?? toggleDone.error} />
       {!loading && list.length === 0 && (
         <div className="panel empty-block">
           <p>{filter === 'done' ? 'Nenhum lembrete avisado ainda.' : 'Nenhum lembrete por aqui.'}</p>
@@ -133,6 +135,7 @@ export default function RemindersPage() {
 
       {editing?.kind === 'reminder' && <ReminderModal reminder={editing.item?.reminder} onClose={() => setEditing(null)} />}
       {editing?.kind === 'activity' && editing.item?.activity && <ActivityModal activity={editing.item.activity} onClose={() => setEditing(null)} />}
+      {editing?.kind === 'commute' && editing.item?.commute && <CommuteModal commute={editing.item.commute} onClose={() => setEditing(null)} />}
       {editing?.kind === 'event' && editing.item?.event && <EventModal event={editing.item.event} onClose={() => setEditing(null)} />}
     </div>
   );

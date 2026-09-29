@@ -28,7 +28,7 @@ import { DocumentService } from './application/library';
 import { Notifier, ReminderScheduler, ReminderService } from './application/notifications';
 import { PrinciplesService, ProfileService, VaultService } from './application/security';
 import {
-  ActivityService, BoardService, EventService, ExecutionService, MeditationService, ReviewService, StatsService,
+  ActivityService, BoardService, CommuteService, EventService, ExecutionService, MeditationService, ReviewService, StatsService,
 } from './application/services';
 import { config, features } from './config';
 import { dateInTz, nowLocalTs, todayIn, toMinutes, weekdayOf } from './domain/dates';
@@ -43,6 +43,7 @@ import { extractText } from './infrastructure/files/extractText';
 import { PushChannel } from './infrastructure/notify/pushChannel';
 import { WhatsAppChannel } from './infrastructure/notify/whatsappChannel';
 import { PgActivityRepository } from './infrastructure/repositories/activityRepository';
+import { PgCommuteRepository } from './infrastructure/repositories/commuteRepository';
 import {
   PgAgentActionRepository, PgAgentSettingsRepository, PgConversationRepository, PgPermissionRepository,
 } from './infrastructure/repositories/agentRepositories';
@@ -62,6 +63,7 @@ import { OpenAiTranscriber } from './infrastructure/speech/openaiTranscriber';
 export function createContainer() {
   // repositórios
   const activityRepo = new PgActivityRepository(pool);
+  const commuteRepo = new PgCommuteRepository(pool);
   const executionRepo = new PgExecutionRepository(pool);
   const eventRepo = new PgEventRepository(pool);
   const boardRepo = new PgBoardRepository(pool);
@@ -88,7 +90,8 @@ export function createContainer() {
 
   // casos de uso
   const activities = new ActivityService(activityRepo);
-  const scheduling = new ActivitySchedulingService(activityRepo);
+  const commutes = new CommuteService(commuteRepo, activityRepo);
+  const scheduling = new ActivitySchedulingService(activityRepo, commuteRepo);
   const executions = new ExecutionService(executionRepo, activityRepo);
   const events = new EventService(eventRepo);
   const boards = new BoardService(boardRepo);
@@ -156,7 +159,7 @@ export function createContainer() {
   const channels = { push: new PushChannel(pushSubscriptions), whatsapp: new WhatsAppChannel(notificationSettings) };
   const notifier = new Notifier(inbox, [channels.push, channels.whatsapp]);
   const scheduler = new ReminderScheduler({
-    reminders: reminderRepo, activities: activityRepo, executions: executionRepo, events: eventRepo,
+    reminders: reminderRepo, activities: activityRepo, commutes: commuteRepo, executions: executionRepo, events: eventRepo,
     log: notificationLog, notifier, timezone: config.timezone,
   });
 
@@ -194,14 +197,14 @@ export function createContainer() {
   });
 
   // agente
-  const tools = buildTools({ activities, executions, events, boards, reviews, meditation, stats, reminders, documents, profile, finance, suggestions, gym, reading, study });
+  const tools = buildTools({ activities, executions, events, boards, reviews, meditation, stats, reminders, commutes, documents, profile, finance, suggestions, gym, reading, study });
   const policy = new PermissionPolicy(permissionRepo);
   const runner = new ToolRunner(tools, policy, actionRepo);
-  const orchestrator = new AgentOrchestrator(conversationRepo, settingsRepo, runner, policy, tools, activities, profile,
+  const orchestrator = new AgentOrchestrator(conversationRepo, settingsRepo, runner, policy, tools, activities, commutes, profile,
     async (userId) => (await suggestions.open(userId)).slice(0, 3).map((s) => s.title));
 
   return {
-    activities, scheduling, gym, reading, study, executions, events, boards, reviews, meditation, stats, reminders, documents, profile, vault, principles,
+    activities, commutes, scheduling, gym, reading, study, executions, events, boards, reviews, meditation, stats, reminders, documents, profile, vault, principles,
     inbox, notifier, channels, pushSubscriptions, notificationSettings, scheduler,
     auth, audit, finance, suggestions, suggestionRepo, exporter, openFinance, pluggyWebhooks,
     agent: { tools, policy, runner, orchestrator, settingsRepo, permissionRepo, actionRepo, conversationRepo },

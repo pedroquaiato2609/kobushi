@@ -48,7 +48,7 @@ function fakes() {
   const policy = new PermissionPolicy({ all: async () => modes, setMany: async () => {} });
   const runner = new ToolRunner(tools, policy, actionRepo, () => ({ type: 'object', properties: {} })); // conversor injetado: o teste não depende da versão do zod
   const profile = { agentOverview: async () => ({ general: [{ title: 'Nome', content: 'Ana' }], protectedTitles: [] }) } as any;
-  const orchestrator = new AgentOrchestrator(conversations, { get: async () => settings, update: async () => settings }, runner, policy, tools, { list: async () => [] } as any, profile);
+  const orchestrator = new AgentOrchestrator(conversations, { get: async () => settings, update: async () => settings }, runner, policy, tools, { list: async () => [] } as any, { list: async () => [] } as any, profile);
   return { messages, actions, modes, ran, orchestrator };
 }
 

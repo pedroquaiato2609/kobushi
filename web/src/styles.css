@@ -1065,6 +1065,18 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
 .tg-goal.min { border-color: var(--min); background: var(--min-bg); } .tg-goal.ideal { border-color: var(--ideal); background: var(--ideal-bg); } .tg-goal.max { border-color: var(--max); background: var(--max-bg); }
 .timegrid.is-week .tg-goal { padding: 2px 5px; font-size: 10.5px; border-radius: 7px; }
 .timegrid.is-week .tg-goal span { display: none; }
+
+/* ===== Deslocamentos no calendário: ocupam tempo, mas não são atividades (sem nível/execução) ===== */
+.tg-commute {
+  position: absolute; left: 2px; right: 2px; z-index: 0; pointer-events: none; overflow: hidden; box-sizing: border-box;
+  border: 1px solid var(--line-strong); border-radius: 6px; padding: 3px 6px; font-size: 11px; color: var(--ink-soft);
+  background: repeating-linear-gradient(45deg, rgba(140, 148, 173, 0.16) 0 6px, rgba(140, 148, 173, 0.06) 6px 12px);
+}
+.tg-commute b, .tg-commute span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; min-width: 0; }
+.tg-commute b { font-weight: 600; color: var(--ink); }
+.tg-commute span { font-size: 10px; opacity: 0.8; }
+.timegrid.is-week .tg-commute { padding: 2px 4px; font-size: 10px; }
+.timegrid.is-week .tg-commute span { display: none; }
 .sched-box .hint { margin: 0; }
 .sched-suggestion { display: flex; gap: 10px; align-items: flex-start; background: var(--accent-tint); border: 1px solid var(--line-strong); border-radius: 12px; padding: 9px 12px; font-size: 13px; }
 .sched-suggestion b { color: var(--ink); }

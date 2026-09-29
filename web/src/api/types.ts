@@ -26,6 +26,12 @@ export interface CalendarEvent {
   location: string; remindMinutes: number | null; remindChannels: NotifyChannel[];
 }
 
+export type CommuteDirection = 'before' | 'after';
+export interface Commute {
+  id: string; name: string; activityId: string; direction: CommuteDirection; durationMin: number; active: boolean;
+  remindTime: string | null; remindMinutes: 5 | 10 | 15 | 30 | 60 | null; remindChannels: NotifyChannel[];
+}
+
 export interface Card {
   id: string; columnId: string; title: string; description: string; position: number;
   dueDate: string | null; activityId: string | null;

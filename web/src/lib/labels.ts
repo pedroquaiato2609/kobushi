@@ -1,7 +1,8 @@
-import type { Activity, ActivityKind, Level, Period, TimeBlock } from '../api/types';
+import type { Activity, ActivityKind, CommuteDirection, Level, Period, TimeBlock } from '../api/types';
 import { effectiveBlocks } from './schedule';
 
 export const KIND_LABEL: Record<ActivityKind, string> = { obligation: 'Obrigação', goal: 'Objetivo', special: 'Objetivo especial (meditação)' };
+export const DIRECTION_LABEL: Record<CommuteDirection, string> = { before: 'Ida (antes da atividade)', after: 'Volta (depois da atividade)' };
 export const KIND_GROUP: Record<ActivityKind, string> = { obligation: 'Obrigações', goal: 'Objetivos', special: 'Meditação' };
 export const PERIOD_LABEL: Record<Period, string> = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' };
 export const LEVEL_LABEL: Record<Level, string> = { min: 'Mínimo', ideal: 'Ideal', max: 'Máximo' };
@@ -30,6 +31,7 @@ export function timeLabel(a: Pick<Activity, 'timeMode' | 'period' | 'weekdays' |
 
 export const RESOURCE_LABEL: Record<string, string> = {
   activity: 'Atividades', execution: 'Execução diária e estatísticas', event: 'Agenda', reminder: 'Lembretes',
+  commute: 'Deslocamentos',
   board: 'Quadros e colunas', card: 'Cards', review: 'Revisão diária', meditation: 'Meditação',
   document: 'Documentos', profile: 'Perfil e informações pessoais', finance: 'Finanças (sempre pede sua confirmação para gravar)', assistant: 'Sugestões do assistente', gym: 'Academia (treinos e exercícios)',
   reading: 'Leitura (livros e sessões de leitura)',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { effectiveBlocks as apiEffectiveBlocks, FREE_WINDOW as apiFree, PERIOD_WINDOW as apiPeriods, parseSuggestion, windowFor as apiWindow } from '../src/domain/schedule';
-import { effectiveBlocks, FREE_WINDOW, PERIOD_WINDOW, placeFlexible, windowFor } from '../../web/src/lib/schedule';
+import { commuteBlock as apiCommuteBlock, effectiveBlocks as apiEffectiveBlocks, FREE_WINDOW as apiFree, PERIOD_WINDOW as apiPeriods, parseSuggestion, windowFor as apiWindow } from '../src/domain/schedule';
+import { commuteBlock, effectiveBlocks, FREE_WINDOW, PERIOD_WINDOW, placeFlexible, windowFor } from '../../web/src/lib/schedule';
 
 const base = { period: null, notBefore: null, notAfter: null, durationMin: 60 } as const;
 
@@ -22,6 +22,16 @@ test('effectiveBlocks: usa a exceção do dia (podendo ter mais de um bloco) qua
   assert.deepEqual(effectiveBlocks(a, 0), [{ startTime: '09:00', endTime: '10:00' }]); // domingo: exceção
   assert.deepEqual(effectiveBlocks(a, 6), [{ startTime: '09:00', endTime: null }]); // sábado: exceção sem fim
   assert.deepEqual(effectiveBlocks(a, 2), a.blocks); // terça: sem exceção, usa os blocos padrão (manhã + tarde)
+});
+
+test('commuteBlock: janela derivada do 1º/último bloco efetivo do dia; front e API concordam', () => {
+  const a = { blocks: [{ startTime: '08:00', endTime: '17:00' }], weekdayBlocks: [{ weekday: 6, blocks: [{ startTime: '09:00', endTime: null }] }] };
+  assert.deepEqual(commuteBlock(a, 1, 'before', 30), { startTime: '07:30', endTime: '08:00' }); // ida: termina no início do 1º bloco
+  assert.deepEqual(commuteBlock(a, 1, 'after', 30), { startTime: '17:00', endTime: '17:30' }); // volta: começa no fim do último bloco
+  assert.equal(commuteBlock(a, 6, 'after', 30), null); // sábado: bloco sem hora de fim, sem referência pra volta
+  assert.deepEqual(commuteBlock(a, 1, 'before', 30), apiCommuteBlock(a, 1, 'before', 30));
+  assert.deepEqual(commuteBlock(a, 1, 'after', 30), apiCommuteBlock(a, 1, 'after', 30));
+  assert.equal(commuteBlock({ blocks: [], weekdayBlocks: [] }, 1, 'before', 30), null); // sem bloco algum nesse dia
 });
 
 test('janela = período ∩ "depois das" ∩ "antes das"; vazia quando não cabe', () => {

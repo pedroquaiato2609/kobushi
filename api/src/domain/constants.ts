@@ -16,8 +16,11 @@ export type ProviderName = (typeof PROVIDERS)[number];
 export const STT_MODES = ['server', 'browser'] as const;
 export type SttMode = (typeof STT_MODES)[number];
 
-export const RESOURCES = ['activity', 'execution', 'event', 'board', 'card', 'review', 'meditation', 'reminder', 'document', 'profile', 'finance', 'assistant', 'agent', 'gym', 'reading', 'study'] as const;
+export const RESOURCES = ['activity', 'execution', 'event', 'board', 'card', 'review', 'meditation', 'reminder', 'commute', 'document', 'profile', 'finance', 'assistant', 'agent', 'gym', 'reading', 'study'] as const;
 export type Resource = (typeof RESOURCES)[number];
+
+export const COMMUTE_DIRECTIONS = ['before', 'after'] as const; // ida (antes do 1º bloco do dia da atividade) | volta (depois do último)
+export type CommuteDirection = (typeof COMMUTE_DIRECTIONS)[number];
 
 export const TOOL_ACTIONS = ['read', 'create', 'update', 'delete'] as const;
 export type ToolAction = (typeof TOOL_ACTIONS)[number];

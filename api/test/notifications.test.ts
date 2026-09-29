@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { Notifier, ReminderScheduler, type NotificationChannel } from '../src/application/notifications';
 import { nextOccurrence } from '../src/domain/dates';
-import type { Activity, CalendarEvent, Reminder } from '../src/domain/entities';
+import type { Activity, CalendarEvent, Commute, Reminder } from '../src/domain/entities';
 
 test('nextOccurrence avança até o futuro sem perder o horário', () => {
   assert.equal(nextOccurrence('2026-09-18T08:00', 'daily', '2026-09-20T09:30'), '2026-09-21T08:00');
@@ -12,7 +12,7 @@ test('nextOccurrence avança até o futuro sem perder o horário', () => {
 
 const NOW = new Date('2026-09-21T12:30:00Z'); // 09:30 em America/Sao_Paulo (segunda-feira)
 
-function world(over: { reminders?: Reminder[]; activities?: Partial<Activity>[]; done?: string[]; events?: Partial<CalendarEvent>[] } = {}) {
+function world(over: { reminders?: Reminder[]; activities?: Partial<Activity>[]; done?: string[]; events?: Partial<CalendarEvent>[]; commutes?: Partial<Commute>[] } = {}) {
   const sent: { channel: string; title: string }[] = [];
   const inbox: string[] = [];
   const claimed = new Set<string>();
@@ -31,6 +31,7 @@ function world(over: { reminders?: Reminder[]; activities?: Partial<Activity>[];
       update: async (id: string, patch: any) => { updates.push({ id, ...patch }); return null; },
     } as any,
     activities: { list: async () => (over.activities ?? []).map((a) => ({ active: true, weekdays: [0, 1, 2, 3, 4, 5, 6], remindChannels: [], minDesc: '', blocks: [], weekdayBlocks: [], ...a })) } as any,
+    commutes: { list: async () => (over.commutes ?? []).map((c, i) => ({ id: `c${i + 1}`, active: true, direction: 'before', durationMin: 30, remindTime: null, remindMinutes: null, remindChannels: [], ...c })) } as any,
     executions: { listRange: async () => (over.done ?? []).map((activityId) => ({ activityId })) } as any,
     events: { reminderDue: async () => (over.events ?? []).map((e) => ({ location: '', remindChannels: [], ...e })) } as any,
     log: { claim: async (k: string) => (claimed.has(k) ? false : (claimed.add(k), true)) } as any,
@@ -83,6 +84,42 @@ test('remindTime e remindMinutes nunca disparam os dois juntos pra mesma ativida
   await w.scheduler.tick(NOW);
   // o agendador em si respeita o que vier salvo; aqui as duas condições levam ao mesmo horário (09:30), então dispara uma vez só
   assert.equal(w.inbox.length, 1);
+});
+
+test('aviso de deslocamento (remindMinutes): acompanha o horário EFETIVO da atividade âncora naquele dia, sem repetir', async () => {
+  // segunda (weekday 1, hoje): exceção da atividade às 10:00; ida de 20 min termina às 10:00 -> começa às 09:40; aviso 10 min antes = 09:30 = agora
+  const w = world({
+    activities: [{ id: 'act1', name: 'Trabalho', timeMode: 'fixed', blocks: [{ startTime: '20:00', endTime: '21:00' }], weekdayBlocks: [{ weekday: 1, blocks: [{ startTime: '10:00', endTime: '11:00' }] }] }],
+    commutes: [{ name: 'Ida ao trabalho', activityId: 'act1', direction: 'before', durationMin: 20, remindMinutes: 10, remindChannels: ['push'] }],
+  });
+  await w.scheduler.tick(NOW);
+  await w.scheduler.tick(NOW); // segundo ciclo: não repete
+  assert.deepEqual(w.inbox, ['Hora de: Ida ao trabalho']);
+  assert.deepEqual(w.sent.map((s) => s.channel), ['push']);
+});
+
+test('deslocamento "after" sem hora de fim no último bloco: não dispara e não quebra', async () => {
+  const w = world({
+    activities: [{ id: 'act1', name: 'Trabalho', timeMode: 'fixed', blocks: [{ startTime: '09:00', endTime: null }] }],
+    commutes: [{ name: 'Volta do trabalho', activityId: 'act1', direction: 'after', durationMin: 20, remindMinutes: 10 }],
+  });
+  await w.scheduler.tick(NOW);
+  assert.deepEqual(w.inbox, []);
+});
+
+test('deslocamento cuja atividade âncora está inativa ou não se aplica no dia: não dispara', async () => {
+  const w = world({
+    activities: [
+      { id: 'inactive', name: 'Inativa', active: false, timeMode: 'fixed', blocks: [{ startTime: '10:00', endTime: '11:00' }] },
+      { id: 'weekend', name: 'Fim de semana', weekdays: [0, 6], timeMode: 'fixed', blocks: [{ startTime: '10:00', endTime: '11:00' }] },
+    ],
+    commutes: [
+      { name: 'Ida 1', activityId: 'inactive', direction: 'before', durationMin: 20, remindMinutes: 10 },
+      { name: 'Ida 2', activityId: 'weekend', direction: 'before', durationMin: 20, remindMinutes: 10 },
+    ],
+  });
+  await w.scheduler.tick(NOW);
+  assert.deepEqual(w.inbox, []);
 });
 
 test('aviso de evento inclui o local e não repete', async () => {

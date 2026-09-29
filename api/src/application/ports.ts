@@ -2,8 +2,8 @@
 // Os repositórios em infrastructure/ implementam estas interfaces.
 import type { Level } from '../domain/constants';
 import type {
-  Activity, AppNotification, Board, BoardFull, CalendarEvent, Card, Column, DailyReview, DayPlanItem, Doc, DocListItem,
-  Execution, Folder, MeditationSession, NewActivity, NewCard, NewDoc, NewEvent, NewMeditation, NewReminder, ReviewFields,
+  Activity, AppNotification, Board, BoardFull, CalendarEvent, Card, Column, Commute, DailyReview, DayPlanItem, Doc, DocListItem,
+  Execution, Folder, MeditationSession, NewActivity, NewCard, NewCommute, NewDoc, NewEvent, NewMeditation, NewReminder, ReviewFields,
   Reminder, StoredProfileItem, PrincipleFolder, StoredPrinciple, PrincipleReminder,
 } from '../domain/entities';
 import type { ProfileLevel } from '../domain/constants';
@@ -73,6 +73,14 @@ export interface ReminderRepository {
   update(id: string, patch: Partial<Pick<Reminder, 'title' | 'body' | 'remindAt' | 'repeat' | 'channels' | 'status' | 'lastFiredAt'>>): Promise<Reminder | null>;
   delete(id: string): Promise<boolean>;
   due(nowLocal: string): Promise<Reminder[]>;
+}
+
+export interface CommuteRepository {
+  list(): Promise<Commute[]>;
+  get(id: string): Promise<Commute | null>;
+  create(data: NewCommute): Promise<Commute>;
+  update(id: string, patch: Partial<NewCommute>): Promise<Commute | null>;
+  delete(id: string): Promise<boolean>;
 }
 
 export interface NotificationRepository {
