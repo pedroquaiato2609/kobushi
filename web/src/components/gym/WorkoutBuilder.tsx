@@ -37,13 +37,54 @@ const blankCardio = (): GymCardioTargets => ({
 const blankFor = (kind: 'strength' | 'cardio') => (kind === 'cardio' ? blankCardio() : blank());
 const fmtRowTarget = (kind: 'strength' | 'cardio', t: unknown) => (kind === 'cardio' ? fmtCardioTarget(t as never) : fmtTarget(t as never));
 
+/**
+ * Campo numérico com vírgula ou ponto: guarda o texto digitado à parte do número já convertido, então o
+ * separador decimal (e o que vem depois dele) não some a cada tecla — só reformata ao sair do campo.
+ */
+function NumField({ value, onChange, ariaLabel }: { value: number; onChange: (n: number) => void; ariaLabel: string }) {
+  const [raw, setRaw] = useState(() => String(value).replace('.', ','));
+  return (
+    <input
+      inputMode="decimal" value={raw}
+      onChange={(e) => {
+        const next = e.target.value.replace(/[^0-9,.]/g, '');
+        setRaw(next);
+        const n = Number(next.replace(',', '.'));
+        if (Number.isFinite(n)) onChange(n);
+      }}
+      onFocus={(e) => e.target.select()}
+      onBlur={() => setRaw(String(value).replace('.', ','))}
+      aria-label={ariaLabel}
+    />
+  );
+}
+/** Mesmo princípio de NumField, para campos opcionais (vazio = null, ex.: km e km/h nas metas de cardio). */
+function NumFieldNullable({ value, onChange, ariaLabel }: { value: number | null; onChange: (n: number | null) => void; ariaLabel: string }) {
+  const [raw, setRaw] = useState(() => (value == null ? '' : String(value).replace('.', ',')));
+  return (
+    <input
+      inputMode="decimal" value={raw}
+      onChange={(e) => {
+        const next = e.target.value.replace(/[^0-9,.]/g, '');
+        setRaw(next);
+        if (next.trim() === '') { onChange(null); return; }
+        const n = Number(next.replace(',', '.'));
+        if (Number.isFinite(n)) onChange(n);
+      }}
+      onFocus={(e) => e.target.select()}
+      onBlur={() => setRaw(value == null ? '' : String(value).replace('.', ','))}
+      aria-label={ariaLabel}
+    />
+  );
+}
+
 function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: GymTargets) => void }) {
-  const set = (l: Level, k: 'sets' | 'reps' | 'weight', raw: string) => {
-    const n = Number(raw.replace(',', '.'));
+  const set = (l: Level, k: 'sets' | 'reps' | 'weight', n: number) => {
     const cur = value[l] ?? { sets: 3, reps: 10, weight: 0 };
-    onChange({ ...value, [l]: { ...cur, [k]: Number.isFinite(n) ? n : 0 } });
+    onChange({ ...value, [l]: { ...cur, [k]: n } });
   };
   const toggle = (l: Level) => { const next = { ...value }; if (next[l]) delete next[l]; else next[l] = blank()[l]; onChange(next); };
+  const FIELD_LABEL = { sets: 'séries', reps: 'repetições', weight: 'carga em kg' } as const;
   return (
     <div className="gx-tgrid" role="group" aria-label="Metas por nível">
       <div className="gx-tgrid-head"><span /><span>Séries</span><span>Reps</span><span>Carga (kg)</span></div>
@@ -51,7 +92,7 @@ function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: Gym
         <div key={l} className={`gx-tgrid-row ${l}${value[l] ? '' : ' off'}`}>
           <button type="button" className={`lvl-tag ${l}`} aria-pressed={Boolean(value[l])} onClick={() => toggle(l)} title={value[l] ? 'Toque para remover este nível' : 'Toque para definir este nível'}>{LEVEL_LABEL[l]}</button>
           {value[l] ? (['sets', 'reps', 'weight'] as const).map((k) => (
-            <input key={k} inputMode="decimal" value={String(value[l]![k]).replace('.', ',')} onChange={(e) => set(l, k, e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: ${k === 'sets' ? 'séries' : k === 'reps' ? 'repetições' : 'carga em kg'}`} />
+            <NumField key={k} value={value[l]![k]} onChange={(n) => set(l, k, n)} ariaLabel={`${LEVEL_LABEL[l]}: ${FIELD_LABEL[k]}`} />
           )) : <span className="hint gx-tgrid-off">não definido</span>}
         </div>
       ))}
@@ -61,10 +102,9 @@ function TargetsGrid({ value, onChange }: { value: GymTargets; onChange: (t: Gym
 
 /** Mesmo princípio de TargetsGrid, para exercícios de cardio: duração (min), distância (km) e velocidade (km/h) em vez de séries/reps/carga. */
 function CardioTargetsGrid({ value, onChange }: { value: GymCardioTargets; onChange: (t: GymCardioTargets) => void }) {
-  const set = (l: Level, k: 'durationMin' | 'distanceKm' | 'speedKmh', raw: string) => {
-    const n = raw.trim() === '' ? null : Number(raw.replace(',', '.'));
+  const set = (l: Level, k: 'durationMin' | 'distanceKm' | 'speedKmh', n: number | null) => {
     const cur = value[l] ?? { durationMin: null, distanceKm: null, speedKmh: null };
-    onChange({ ...value, [l]: { ...cur, [k]: n !== null && Number.isFinite(n) ? n : null } });
+    onChange({ ...value, [l]: { ...cur, [k]: n } });
   };
   const toggle = (l: Level) => { const next = { ...value }; if (next[l]) delete next[l]; else next[l] = blankCardio()[l]; onChange(next); };
   return (
@@ -75,9 +115,9 @@ function CardioTargetsGrid({ value, onChange }: { value: GymCardioTargets; onCha
           <button type="button" className={`lvl-tag ${l}`} aria-pressed={Boolean(value[l])} onClick={() => toggle(l)} title={value[l] ? 'Toque para remover este nível' : 'Toque para definir este nível'}>{LEVEL_LABEL[l]}</button>
           {value[l] ? (
             <>
-              <input inputMode="decimal" value={value[l]!.durationMin == null ? '' : String(value[l]!.durationMin).replace('.', ',')} onChange={(e) => set(l, 'durationMin', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: minutos`} />
-              <input inputMode="decimal" value={value[l]!.distanceKm == null ? '' : String(value[l]!.distanceKm).replace('.', ',')} onChange={(e) => set(l, 'distanceKm', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: km`} />
-              <input inputMode="decimal" value={value[l]!.speedKmh == null ? '' : String(value[l]!.speedKmh).replace('.', ',')} onChange={(e) => set(l, 'speedKmh', e.target.value)} onFocus={(e) => e.target.select()} aria-label={`${LEVEL_LABEL[l]}: velocidade em km/h`} />
+              <NumFieldNullable value={value[l]!.durationMin} onChange={(n) => set(l, 'durationMin', n)} ariaLabel={`${LEVEL_LABEL[l]}: minutos`} />
+              <NumFieldNullable value={value[l]!.distanceKm} onChange={(n) => set(l, 'distanceKm', n)} ariaLabel={`${LEVEL_LABEL[l]}: km`} />
+              <NumFieldNullable value={value[l]!.speedKmh} onChange={(n) => set(l, 'speedKmh', n)} ariaLabel={`${LEVEL_LABEL[l]}: velocidade em km/h`} />
             </>
           ) : <span className="hint gx-tgrid-off">não definido</span>}
         </div>
