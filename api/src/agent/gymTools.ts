@@ -127,6 +127,7 @@ export function buildGymTools(g: GymService): ToolDefinition[] {
         ...(a.secondaryMuscles?.length ? [`Secundários: ${a.secondaryMuscles.join(', ')}`] : []),
         ...(a.stabilizerMuscles?.length ? [`Estabilizadores: ${a.stabilizerMuscles.join(', ')}`] : []),
         `Equipamento: ${a.equipment ?? 'other'}`,
+        ...(a.kind === 'cardio' ? [a.singleSession === false ? 'Em várias séries (tiros, circuito...)' : 'Sessão única (feito uma vez só)'] : []),
       ] }),
       run: async (a) => { const e = await g.createExercise(exerciseCreateSchema.parse(a)); return { ok: true, id: e.id, nome: e.name }; } }),
     tool({ name: 'gym_create_workout', resource: 'gym', group: 'gym', action: 'create', label: 'um treino', defaultMode: 'confirm',

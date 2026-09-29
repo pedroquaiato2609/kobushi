@@ -8,7 +8,7 @@ const toExercise = (r: Record<string, any>): Exercise => {
   const e = mapRow<any>(r);
   return {
     id: e.id, name: e.name, primaryMuscles: e.primaryMuscles, secondaryMuscles: e.secondaryMuscles, stabilizerMuscles: e.stabilizerMuscles ?? [], equipment: e.equipment,
-    kind: e.kind, instructions: e.instructions, tips: e.tips, isCustom: e.isCustom, imageMime: e.imageStorage ? e.imageMime : null, archived: e.archived, createdAt: e.createdAt,
+    kind: e.kind, singleSession: e.singleSession, instructions: e.instructions, tips: e.tips, isCustom: e.isCustom, imageMime: e.imageStorage ? e.imageMime : null, archived: e.archived, createdAt: e.createdAt,
   };
 };
 const toItem = (r: Record<string, any>): WorkoutItem => ({ id: r.id, exerciseId: r.exercise_id, position: r.position, restSeconds: r.rest_seconds, note: r.note, targets: r.targets ?? {} });
@@ -42,8 +42,8 @@ export class PgGymRepository implements GymRepository {
   }
   async createExercise(d: ExerciseInput & { isCustom: boolean }) {
     const { rows } = await this.db.query(
-      `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, instructions, tips, is_custom) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
-      [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.instructions, d.tips, d.isCustom],
+      `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, single_session, instructions, tips, is_custom) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.singleSession, d.instructions, d.tips, d.isCustom],
     );
     return toExercise(rows[0]);
   }
@@ -53,27 +53,28 @@ export class PgGymRepository implements GymRepository {
       // O índice único é em lower(name); só exercícios do catálogo (is_custom = false) colidem por nome com o catálogo,
       // já que um exercício do usuário com o mesmo nome já teria sido recusado na criação. Seguro atualizar sem checar is_custom.
       const r = await this.db.query(
-        `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, instructions, tips, is_custom)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,false)
+        `INSERT INTO gym_exercises (name, primary_muscles, secondary_muscles, stabilizer_muscles, equipment, kind, single_session, instructions, tips, is_custom)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false)
          ON CONFLICT ((lower(name))) DO UPDATE SET
            primary_muscles = EXCLUDED.primary_muscles, secondary_muscles = EXCLUDED.secondary_muscles, stabilizer_muscles = EXCLUDED.stabilizer_muscles,
-           equipment = EXCLUDED.equipment, kind = EXCLUDED.kind, instructions = EXCLUDED.instructions, tips = EXCLUDED.tips, updated_at = now()
+           equipment = EXCLUDED.equipment, kind = EXCLUDED.kind, single_session = EXCLUDED.single_session, instructions = EXCLUDED.instructions, tips = EXCLUDED.tips, updated_at = now()
          WHERE gym_exercises.primary_muscles IS DISTINCT FROM EXCLUDED.primary_muscles
             OR gym_exercises.secondary_muscles IS DISTINCT FROM EXCLUDED.secondary_muscles
             OR gym_exercises.stabilizer_muscles IS DISTINCT FROM EXCLUDED.stabilizer_muscles
             OR gym_exercises.equipment IS DISTINCT FROM EXCLUDED.equipment
             OR gym_exercises.kind IS DISTINCT FROM EXCLUDED.kind
+            OR gym_exercises.single_session IS DISTINCT FROM EXCLUDED.single_session
             OR gym_exercises.instructions IS DISTINCT FROM EXCLUDED.instructions
             OR gym_exercises.tips IS DISTINCT FROM EXCLUDED.tips
          RETURNING (xmax = 0) AS inserted`,
-        [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.instructions, d.tips],
+        [d.name, d.primaryMuscles, d.secondaryMuscles, d.stabilizerMuscles, d.equipment, d.kind, d.singleSession, d.instructions, d.tips],
       );
       if (r.rows[0]?.inserted) created++; else if (r.rowCount) updated++;
     }
     return { created, updated };
   }
   async updateExercise(id: string, patch: Partial<ExerciseInput>) {
-    const row = await updateRow(this.db, 'gym_exercises', 'id', id, patch, ['name', 'primaryMuscles', 'secondaryMuscles', 'stabilizerMuscles', 'equipment', 'kind', 'instructions', 'tips']);
+    const row = await updateRow(this.db, 'gym_exercises', 'id', id, patch, ['name', 'primaryMuscles', 'secondaryMuscles', 'stabilizerMuscles', 'equipment', 'kind', 'singleSession', 'instructions', 'tips']);
     return row ? toExercise(row) : null;
   }
   async removeExercise(id: string) {

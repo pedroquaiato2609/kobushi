@@ -52,7 +52,7 @@ export class GymService {
   syncCatalog() {
     return this.repo.upsertCatalog(CATALOG.map((c) => ({
       name: c.name, primaryMuscles: c.primary, secondaryMuscles: c.secondary, stabilizerMuscles: c.stabilizer,
-      equipment: c.equipment, kind: c.kind, instructions: c.instructions, tips: c.tips,
+      equipment: c.equipment, kind: c.kind, singleSession: c.singleSession, instructions: c.instructions, tips: c.tips,
     })));
   }
 
@@ -73,6 +73,7 @@ export class GymService {
     try {
       return await this.repo.createExercise({
         name: input.name, equipment: input.equipment ?? 'other', kind: input.kind ?? 'strength',
+        singleSession: input.singleSession ?? true,
         instructions: input.instructions ?? '', tips: input.tips ?? '', isCustom: true, ...classified,
       });
     } catch (e) { if (isUniqueViolation(e)) throw new ValidationError('Já existe um exercício com esse nome.'); throw e; }

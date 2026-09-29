@@ -155,6 +155,7 @@ const KIND_LABEL: Record<GymExerciseKind, string> = { strength: 'Musculação (s
 export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymExercise; onClose: () => void; onSaved?: (e: GymExercise) => void }) {
   const [name, setName] = useState(exercise?.name ?? '');
   const [kind, setKind] = useState<GymExerciseKind>(exercise?.kind ?? 'strength');
+  const [singleSession, setSingleSession] = useState(exercise?.singleSession ?? true);
   const [equipment, setEquipment] = useState<GymEquipment>(exercise?.equipment ?? 'machine');
   const [primary, setPrimary] = useState<Muscle[]>(exercise?.primaryMuscles ?? []);
   const [secondary, setSecondary] = useState<Muscle[]>(exercise?.secondaryMuscles ?? []);
@@ -176,7 +177,7 @@ export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymE
     (p: object) => (exercise ? api.patch<GymExercise>(`/gym/exercises/${exercise.id}`, p) : api.post<GymExercise>('/gym/exercises', p)),
     (e) => { onSaved?.(e); onClose(); },
   );
-  const submit = () => save.mutate({ name: name.trim(), kind, equipment, primaryMuscles: primary, secondaryMuscles: secondary, stabilizerMuscles: stabilizer, instructions, tips });
+  const submit = () => save.mutate({ name: name.trim(), kind, singleSession, equipment, primaryMuscles: primary, secondaryMuscles: secondary, stabilizerMuscles: stabilizer, instructions, tips });
 
   return (
     <Modal title={exercise ? 'Editar exercício' : 'Novo exercício'} onClose={onClose} onSubmit={submit} wide
@@ -200,6 +201,13 @@ export function ExerciseEditor({ exercise, onClose, onSaved }: { exercise?: GymE
               </select>
             </Field>
           </div>
+          {kind === 'cardio' && (
+            <label className="check">
+              <input type="checkbox" checked={singleSession} onChange={(e) => setSingleSession(e.target.checked)} />
+              Sessão única (feito uma vez só no treino, ex.: esteira contínua, caminhada)
+            </label>
+          )}
+          {kind === 'cardio' && !singleSession && <p className="hint">Desmarcado: entra em várias séries no treino (ex.: tiros, circuito, HIIT em rounds), como um exercício normal de cardio.</p>}
           <fieldset className="field">
             <legend className="field-label">Músculos: toque para alternar entre principal → secundário → estabilizador → nenhum</legend>
             {primary.length === 0 && <p className="error" role="alert">Escolha pelo menos um músculo principal.</p>}

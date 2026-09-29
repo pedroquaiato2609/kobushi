@@ -10,12 +10,21 @@
 // isso é comentado nas dicas de cada exercício quando relevante, em vez de criar entradas separadas.
 import type { Equipment, ExerciseKind, Muscle } from '../../domain/gym';
 
-export interface CatalogItem { name: string; primary: Muscle[]; secondary: Muscle[]; stabilizer: Muscle[]; equipment: Equipment; kind: ExerciseKind; instructions: string; tips: string }
+export interface CatalogItem {
+  name: string; primary: Muscle[]; secondary: Muscle[]; stabilizer: Muscle[]; equipment: Equipment; kind: ExerciseKind;
+  singleSession: boolean; instructions: string; tips: string;
+}
 const x = (name: string, primary: Muscle[], secondary: Muscle[], stabilizer: Muscle[], equipment: Equipment, instructions: string, tips: string): CatalogItem =>
-  ({ name, primary, secondary, stabilizer, equipment, kind: 'strength', instructions, tips });
-/** Exercício de cardio: mesma classificação muscular, mas rastreado por duração/distância em vez de séries×reps×carga. */
+  ({ name, primary, secondary, stabilizer, equipment, kind: 'strength', singleSession: false, instructions, tips });
+/**
+ * Exercício de cardio: mesma classificação muscular, mas rastreado por duração/distância em vez de séries×reps×carga.
+ * "Sessão única" por padrão (feito uma vez só, ex.: esteira contínua) — use xcSets para os feitos em várias séries/rounds.
+ */
 const xc = (name: string, primary: Muscle[], secondary: Muscle[], stabilizer: Muscle[], equipment: Equipment, instructions: string, tips: string): CatalogItem =>
-  ({ name, primary, secondary, stabilizer, equipment, kind: 'cardio', instructions, tips });
+  ({ name, primary, secondary, stabilizer, equipment, kind: 'cardio', singleSession: true, instructions, tips });
+/** Cardio feito em várias séries/rounds (tiros, intervalado, circuito de HIIT) — mesmo princípio de xc, mas com séries. */
+const xcSets = (name: string, primary: Muscle[], secondary: Muscle[], stabilizer: Muscle[], equipment: Equipment, instructions: string, tips: string): CatalogItem =>
+  ({ ...xc(name, primary, secondary, stabilizer, equipment, instructions, tips), singleSession: false });
 
 export const CATALOG: CatalogItem[] = [
   // Peito ---------------------------------------------------------------------------------------------------
@@ -276,7 +285,7 @@ export const CATALOG: CatalogItem[] = [
   xc('Esteira - corrida em inclinação', ['gluteus_maximus', 'quadriceps'], ['hamstrings', 'gastrocnemius'], ['erector_spinae'], 'treadmill',
     'Caminhe ou corra com a esteira inclinada (5–10%), simulando uma subida.',
     'A inclinação poupa os joelhos e ativa mais os glúteos que correr no plano.'),
-  xc('Esteira - tiros (intervalado)', ['quadriceps', 'hamstrings'], ['gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis'], 'treadmill',
+  xcSets('Esteira - tiros (intervalado)', ['quadriceps', 'hamstrings'], ['gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis'], 'treadmill',
     'Alterne blocos curtos de corrida forte com blocos de caminhada ou trote leve para recuperar.',
     'Comece com poucos tiros e aumente a quantidade conforme o condicionamento melhora.'),
   xc('Bicicleta ergométrica', ['quadriceps'], ['hamstrings', 'gastrocnemius', 'gluteus_maximus'], ['rectus_abdominis'], 'bike',
@@ -285,7 +294,7 @@ export const CATALOG: CatalogItem[] = [
   xc('Bicicleta ergométrica reclinada', ['quadriceps'], ['hamstrings', 'gluteus_maximus'], ['erector_spinae'], 'bike',
     'Pedale com as costas apoiadas no encosto reclinado, útil para quem tem desconforto lombar na bike tradicional.',
     'Boa opção de baixo impacto para iniciantes ou em fase de recuperação.'),
-  xc('Bike indoor intervalada (spinning)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis', 'obliques'], 'bike',
+  xcSets('Bike indoor intervalada (spinning)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis', 'obliques'], 'bike',
     'Alterne trechos sentados e em pé, variando a resistência entre blocos intensos e blocos de recuperação.',
     'Em pé, mantenha o tronco levemente inclinado à frente e o core ativado.'),
   xc('Escada ergométrica (stairmaster)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis'], 'stairs',
@@ -300,7 +309,7 @@ export const CATALOG: CatalogItem[] = [
   xc('Remo ergométrico', ['latissimus_dorsi', 'quadriceps'], ['biceps_brachii', 'hamstrings', 'trapezius', 'rhomboids'], ['rectus_abdominis', 'erector_spinae'], 'rowing_machine',
     'Empurre com as pernas, incline o tronco para trás e puxe o guidão até o abdômen, na sequência pernas → tronco → braços.',
     'A força vem principalmente das pernas, não dos braços — eles só finalizam o movimento.'),
-  xc('Corda naval (battle rope)', ['deltoid_anterior', 'deltoid_lateral'], ['triceps_brachii', 'trapezius'], ['rectus_abdominis', 'obliques'], 'other',
+  xcSets('Corda naval (battle rope)', ['deltoid_anterior', 'deltoid_lateral'], ['triceps_brachii', 'trapezius'], ['rectus_abdominis', 'obliques'], 'other',
     'Com um pé à frente do outro, ondule as cordas alternando ou juntando os braços, em blocos curtos e intensos.',
     'Mantenha o core contraído para não deixar a lombar balançar com o impacto.'),
   xc('Pular corda', ['gastrocnemius', 'soleus'], ['quadriceps', 'deltoid_lateral'], ['rectus_abdominis'], 'jump_rope',
@@ -318,19 +327,19 @@ export const CATALOG: CatalogItem[] = [
   xc('Natação - nado livre', ['latissimus_dorsi', 'deltoid_posterior'], ['triceps_brachii', 'pectoral_major', 'quadriceps'], ['rectus_abdominis', 'obliques'], 'pool',
     'Nade em ritmo constante, respiração coordenada com as braçadas.',
     'Exercício de baixíssimo impacto: ótimo para quem tem dor articular.'),
-  xc('Natação - nado intervalado', ['latissimus_dorsi', 'deltoid_posterior'], ['triceps_brachii', 'gastrocnemius'], ['transverse_abdominis'], 'pool',
+  xcSets('Natação - nado intervalado', ['latissimus_dorsi', 'deltoid_posterior'], ['triceps_brachii', 'gastrocnemius'], ['transverse_abdominis'], 'pool',
     'Alterne piscinas em ritmo forte com piscinas de nado leve para recuperar.',
     'Use as bordas para cronometrar os blocos de esforço e descanso.'),
-  xc('Polichinelo (jumping jack)', ['deltoid_lateral', 'gluteus_medius'], ['quadriceps', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
+  xcSets('Polichinelo (jumping jack)', ['deltoid_lateral', 'gluteus_medius'], ['quadriceps', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
     'Salte abrindo pernas e braços ao mesmo tempo, e volte à posição inicial no salto seguinte.',
     'Bom para aquecer ou para blocos curtos de intensidade num circuito.'),
-  xc('Burpee', ['quadriceps', 'pectoral_major'], ['deltoid_anterior', 'triceps_brachii', 'hamstrings'], ['rectus_abdominis', 'obliques'], 'bodyweight',
+  xcSets('Burpee', ['quadriceps', 'pectoral_major'], ['deltoid_anterior', 'triceps_brachii', 'hamstrings'], ['rectus_abdominis', 'obliques'], 'bodyweight',
     'Agache, apoie as mãos no chão, jogue as pernas para trás em prancha, volte e finalize com um salto.',
     'Reduza o salto final ou a flexão se for iniciante — o movimento completo é bem intenso.'),
-  xc('Escalador (mountain climber)', ['rectus_abdominis', 'hip_flexors'], ['deltoid_anterior', 'quadriceps'], ['transverse_abdominis', 'obliques'], 'bodyweight',
+  xcSets('Escalador (mountain climber)', ['rectus_abdominis', 'hip_flexors'], ['deltoid_anterior', 'quadriceps'], ['transverse_abdominis', 'obliques'], 'bodyweight',
     'Em posição de prancha, alterne trazendo os joelhos ao peito em ritmo rápido.',
     'Mantenha o quadril baixo e estável — não deixe subir a cada troca de perna.'),
-  xc('Agachamento com salto (jump squat)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
+  xcSets('Agachamento com salto (jump squat)', ['quadriceps', 'gluteus_maximus'], ['hamstrings', 'gastrocnemius'], ['rectus_abdominis'], 'bodyweight',
     'Agache e exploda para cima saltando, aterrissando de forma suave de volta ao agachamento.',
     'Aterrisse com os joelhos levemente flexionados para amortecer o impacto.'),
 ];

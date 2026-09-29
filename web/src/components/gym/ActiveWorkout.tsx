@@ -149,6 +149,9 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
   item: GymPlanItem; sessionId: string; onLogged: (r: GymAddSetResult, item: GymPlanItem) => void; onOpen: (e: GymExercise) => void; onRemoveExtra?: () => void;
 }) {
   const cardio = item.exercise.kind === 'cardio';
+  // exercícios de sessão única (ex.: esteira contínua) são feitos uma vez só no treino, não em várias séries
+  const singleSession = cardio && item.exercise.singleSession;
+  const done = singleSession && item.sets.length >= 1;
   const t = item.targets;
   const hasTargets = Object.keys(t).length > 0;
   const lastSet = item.sets.at(-1);
@@ -200,7 +203,9 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
           <span><b>{item.exercise.name}</b><small>{item.exercise.primaryMuscles.map((m) => MUSCLE_LABEL[m]).join(', ')} · {EQUIPMENT_LABEL[item.exercise.equipment]}</small></span>
         </button>
         <div className="gx-card-side">
-          <span className="gx-count">{item.sets.length}{!cardio && targetSets ? `/${targetSets}` : ''}<small> {item.sets.length === 1 ? 'série' : 'séries'}</small></span>
+          {singleSession
+            ? <span className="gx-count">{done ? '✓' : '—'}<small> {done ? 'feito' : 'pendente'}</small></span>
+            : <span className="gx-count">{item.sets.length}{!cardio && targetSets ? `/${targetSets}` : ''}<small> {item.sets.length === 1 ? 'série' : 'séries'}</small></span>}
           <LevelTag level={item.levelReached} />
           {onRemoveExtra && <button type="button" className="icon-btn" onClick={onRemoveExtra} aria-label="Tirar exercício"><Icon name="x" size={16} /></button>}
         </div>
@@ -260,18 +265,22 @@ function ExerciseCard({ item, sessionId, onLogged, onOpen, onRemoveExtra }: {
         </ol>
       )}
 
-      <div className="gx-log">
-        {cardio ? <>
-          <Stepper label="Minutos" value={minutes} onChange={setMinutes} step={1} min={1} max={300} suffix="min" />
-          <Stepper label="Distância" value={km} onChange={setKm} step={0.5} min={0} max={200} suffix="km" />
-        </> : <>
-          <Stepper label="Carga" value={weight} onChange={setWeight} step={2.5} max={2000} suffix="kg" />
-          <Stepper label="Repetições" value={reps} onChange={setReps} step={1} min={1} max={1000} />
-        </>}
-        <button type="button" className="btn primary gx-log-btn" disabled={log.isPending} onClick={() => void submit()}>
-          <Icon name="check" size={18} /> Concluir série {item.sets.length + 1}
-        </button>
-      </div>
+      {done ? (
+        <p className="hint">Sessão registrada. Use o lápis acima pra editar os detalhes, ou apague a série pra refazer.</p>
+      ) : (
+        <div className="gx-log">
+          {cardio ? <>
+            <Stepper label="Minutos" value={minutes} onChange={setMinutes} step={1} min={1} max={300} suffix="min" />
+            <Stepper label="Distância" value={km} onChange={setKm} step={0.5} min={0} max={200} suffix="km" />
+          </> : <>
+            <Stepper label="Carga" value={weight} onChange={setWeight} step={2.5} max={2000} suffix="kg" />
+            <Stepper label="Repetições" value={reps} onChange={setReps} step={1} min={1} max={1000} />
+          </>}
+          <button type="button" className="btn primary gx-log-btn" disabled={log.isPending} onClick={() => void submit()}>
+            <Icon name="check" size={18} /> {singleSession ? 'Concluir treino' : `Concluir série ${item.sets.length + 1}`}
+          </button>
+        </div>
+      )}
       {flash && <p className="gx-flash" role="status">{flash}</p>}
       <ErrorText error={log.error ?? del.error} />
     </article>

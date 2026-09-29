@@ -3,9 +3,12 @@ import type { CardioTargets, Equipment, ExerciseKind, Muscle, SetLike, Targets }
 
 export interface Exercise {
   id: string; name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment;
-  kind: ExerciseKind; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean; createdAt: Date;
+  kind: ExerciseKind; singleSession: boolean; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean; createdAt: Date;
 }
-export interface ExerciseInput { name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment; kind: ExerciseKind; instructions: string; tips: string }
+export interface ExerciseInput {
+  name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: Equipment;
+  kind: ExerciseKind; singleSession: boolean; instructions: string; tips: string;
+}
 
 export interface WorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: Targets | CardioTargets }
 export interface WorkoutItemInput { exerciseId: string; restSeconds: number; note: string; targets: Targets | CardioTargets }

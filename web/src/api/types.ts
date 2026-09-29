@@ -194,7 +194,7 @@ export type GymEquipment =
 export type GymExerciseKind = 'strength' | 'cardio';
 export interface GymExercise {
   id: string; name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: GymEquipment;
-  kind: GymExerciseKind; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean;
+  kind: GymExerciseKind; singleSession: boolean; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean;
 }
 export interface GymLevelTarget { sets: number; reps: number; weight: number }
 /** Meta de cardio por nível: duração em minutos e/ou distância em km (ao menos um definido). */

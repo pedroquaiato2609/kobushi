@@ -18,6 +18,7 @@ export const exerciseCreateSchema = z.object({
   stabilizerMuscles: z.array(muscle).max(8).optional().describe('não move a articulação-alvo; segura postura/tronco/escápula durante o exercício'),
   equipment: z.enum(EQUIPMENT).optional(),
   kind: z.enum(EXERCISE_KINDS).optional().describe('strength (padrão) = séries×reps×carga; cardio = duração/distância (esteira, bicicleta, escada, remo...)'),
+  singleSession: z.boolean().optional().describe('só para cardio: true (padrão) = feito uma vez só no treino (esteira, caminhada...); false = em várias séries (tiros, circuito, HIIT em rounds...)'),
   instructions: z.string().max(1000).optional(),
   tips: z.string().max(600).optional(),
 });
