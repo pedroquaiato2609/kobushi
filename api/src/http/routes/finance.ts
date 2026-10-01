@@ -59,6 +59,7 @@ export function financeRoutes(app: FastifyInstance, c: Container) {
 
   // categorias
   app.post('/finance/categories', async (req, reply) => reply.code(201).send(await f.createCategory(uid(req), z.object({ name: z.string().min(1).max(60), kind: z.enum(['expense', 'income']), parentId: nullableId, color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() }).parse(req.body))));
+  app.patch('/finance/categories/:id', async (req, reply) => reply.send(await f.updateCategory(uid(req), pid(req), z.object({ name: z.string().min(1).max(60).optional(), parentId: nullableId, color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional() }).parse(req.body))));
   app.delete('/finance/categories/:id', async (req, reply) => { await f.deleteCategory(uid(req), pid(req)); return reply.code(204).send(); });
 
   // movimentações

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthSummary, patrimony, totals, upcoming } from '../src/application/finance/analytics';
 import { computeInsights } from '../src/application/finance/insights';
+import { FieldCrypto } from '../src/application/fieldCrypto';
+import { FinanceService } from '../src/application/finance/service';
 import type { FinAccount, FinCategory, FinData, FinRecurring, FinTransaction } from '../src/application/finance/types';
 import { brl, toCents } from '../src/domain/money';
 
@@ -130,4 +132,38 @@ test('insights: renda comprometida usa recorrências ativas e faturas a pagar', 
   const ins = computeInsights(data({ accounts: [acc({ id: 'chk' })], recurring: [rec], txs: incomes }));
   const c = ins.find((i) => i.type === 'income_committed')!;
   assert.match(c.title, /63%/); assert.equal(c.severity, 'info');
+});
+
+// ============================================================ categorias (FinanceService, com repositório em memória)
+function memCat<T extends { id: string; userId: string }>() {
+  const rows: T[] = []; let i = 0;
+  return { rows,
+    list: async (u: string) => rows.filter((r) => r.userId === u), get: async (u: string, id: string) => rows.find((r) => r.id === id && r.userId === u) ?? null,
+    create: async (u: string, d: any) => { const r = { id: `c${++i}`, userId: u, ...d } as T; rows.push(r); return r; },
+    update: async (u: string, id: string, p: any) => { const r = rows.find((x) => x.id === id && x.userId === u); if (!r) return null; for (const [k, v] of Object.entries(p)) if (v !== undefined) (r as any)[k] = v; return r; },
+    delete: async (u: string, id: string) => { const idx = rows.findIndex((x) => x.id === id && x.userId === u); if (idx < 0) return false; rows.splice(idx, 1); return true; } };
+}
+function categoryHarness() {
+  const repo = { accounts: memCat<any>(), categories: memCat<any>(), transactions: memCat<any>(), budgets: memCat<any>(), goals: memCat<any>(), recurring: memCat<any>() } as any;
+  const crypto = new FieldCrypto(Buffer.alloc(32, 7));
+  return new FinanceService(repo, crypto, { today: () => '2026-09-21', createEvent: async () => ({ id: 'e' }), createCard: async () => ({ id: 'c' }), audit: () => {} });
+}
+
+test('categoria: cria, edita (nome/cor/mãe) e apaga; nome vazio e mãe inválida são recusados', async () => {
+  const fin = categoryHarness();
+  const food = await fin.createCategory(U, { name: 'Alimentação', kind: 'expense' });
+  const market = await fin.createCategory(U, { name: 'Mercado', kind: 'expense', parentId: food.id });
+  assert.equal(market.parentId, food.id);
+  await assert.rejects(fin.createCategory(U, { name: '  ', kind: 'expense' })); // nome vazio
+  await assert.rejects(fin.createCategory(U, { name: 'Feira', kind: 'expense', parentId: market.id })); // mãe já é subcategoria
+  await assert.rejects(fin.createCategory(U, { name: 'Salário extra', kind: 'income', parentId: food.id })); // tipo diferente da mãe
+
+  const renamed = await fin.updateCategory(U, market.id, { name: 'Supermercado', color: '#123456' });
+  assert.equal(renamed.name, 'Supermercado'); assert.equal(renamed.color, '#123456');
+  await assert.rejects(fin.updateCategory(U, market.id, { name: '   ' })); // nome vazio na edição também
+  await assert.rejects(fin.updateCategory(U, market.id, { parentId: market.id })); // não pode ser mãe de si mesma
+  await assert.rejects(fin.updateCategory(U, 'nope', { name: 'X' })); // id inexistente
+
+  await fin.deleteCategory(U, market.id);
+  await assert.rejects(fin.deleteCategory(U, market.id)); // já foi apagada
 });

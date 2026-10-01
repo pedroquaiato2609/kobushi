@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
 import type { Activity, FinAccount, FinCategory, FinGoal, FinRecurring, FinTransaction, TxKind } from '../../api/types';
@@ -7,7 +7,7 @@ import { centsToInput, parseMoney } from '../../lib/money';
 import { ErrorText, Field, Modal } from '../ui';
 import { useConfirm } from '../ConfirmProvider';
 import { useReauth } from '../AuthGate';
-import { ACCOUNT_KIND, CategorySelect } from './shared';
+import { ACCOUNT_KIND, CATEGORY_PALETTE, CategorySelect, suggestCategoryId } from './shared';
 
 const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const KINDS: { id: TxKind; label: string }[] = [{ id: 'expense', label: 'Despesa' }, { id: 'income', label: 'Receita' }, { id: 'transfer', label: 'Transferência' }];
@@ -34,6 +34,14 @@ export function TransactionModal({ tx, accounts, categories, initial, onClose }:
   const [accountId, setAccountId] = useState(tx?.accountId ?? initial?.accountId ?? usable.find((a) => a.kind !== 'credit_card')?.id ?? usable[0]?.id ?? '');
   const [toId, setToId] = useState(tx?.transferAccountId ?? '');
   const [categoryId, setCategoryId] = useState(tx?.categoryId ?? '');
+  // sugere a categoria pela descrição/estabelecimento até o usuário escolher uma com a mão
+  const [catAuto, setCatAuto] = useState(!tx && !initial?.categoryId);
+  const [catSuggested, setCatSuggested] = useState(false);
+  useEffect(() => {
+    if (!catAuto || kind === 'transfer') return;
+    const hit = suggestCategoryId(`${description} ${merchant}`, categories, kind);
+    if (hit) { setCategoryId(hit); setCatSuggested(true); }
+  }, [description, merchant, kind, catAuto, categories]);
   const [status, setStatus] = useState<'pending' | 'confirmed'>(tx?.status ?? initial?.status ?? 'confirmed');
   const [remind, setRemind] = useState(tx?.remindDaysBefore === null || tx?.remindDaysBefore === undefined ? '' : String(tx.remindDaysBefore));
   const [note, setNote] = useState(tx?.note ?? '');
@@ -78,7 +86,10 @@ export function TransactionModal({ tx, accounts, categories, initial, onClose }:
         </Field>
         {kind === 'transfer'
           ? <Field label="Conta de destino"><select value={toId} onChange={(e) => setToId(e.target.value)}><option value="">Escolha…</option>{usable.filter((a) => a.id !== accountId).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
-          : <Field label="Categoria"><CategorySelect categories={categories} kind={kind} value={categoryId} onChange={setCategoryId} /></Field>}
+          : <Field label="Categoria">
+              <CategorySelect categories={categories} kind={kind} value={categoryId} onChange={(v) => { setCategoryId(v); setCatAuto(false); setCatSuggested(false); }} />
+              {catAuto && catSuggested && categoryId && <small className="hint">Sugestão automática pelo texto — pode trocar.</small>}
+            </Field>}
       </div>
       <Field label="Situação">
         <div className="btn-group" role="group" aria-label="Situação">
@@ -181,6 +192,60 @@ export function PayInvoiceModal({ card, accounts, amountCents, onClose }: { card
         <Field label="Data do pagamento"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
       </div>
       <ErrorText error={err ?? pay.error} />
+    </Modal>
+  );
+}
+
+/** Cria ou edita uma categoria (nome, cor e, opcionalmente, uma categoria-mãe). O tipo (despesa/receita) é fixo depois de criada. */
+export function CategoryModal({ category, categories, onClose }: { category?: FinCategory | null; categories: FinCategory[]; onClose: () => void }) {
+  const [name, setName] = useState(category?.name ?? '');
+  const [kind, setKind] = useState<'expense' | 'income'>(category?.kind ?? 'expense');
+  const [parentId, setParentId] = useState(category?.parentId ?? '');
+  const [color, setColor] = useState(category?.color ?? CATEGORY_PALETTE[0]);
+  const [err, setErr] = useState<Error | null>(null);
+  const hasChildren = categories.some((c) => c.parentId === category?.id);
+  const parentOptions = categories.filter((c) => !c.parentId && c.kind === kind && c.id !== category?.id);
+
+  const save = useAction(
+    (body: Record<string, unknown>) => (category ? api.patch<FinCategory>(`/finance/categories/${category.id}`, body) : api.post<FinCategory>('/finance/categories', body)),
+    onClose,
+  );
+  function submit() {
+    if (!name.trim()) return setErr(new Error('Dê um nome à categoria.'));
+    setErr(null);
+    save.mutate(category ? { name: name.trim(), parentId: parentId || null, color } : { name: name.trim(), kind, parentId: parentId || null, color });
+  }
+
+  return (
+    <Modal title={category ? 'Editar categoria' : 'Nova categoria'} onClose={onClose} onSubmit={submit}
+      footer={<><span className="spacer" /><button type="button" className="btn ghost" onClick={onClose}>Cancelar</button><button type="submit" className="btn primary" disabled={save.isPending}>{save.isPending ? 'Salvando…' : 'Salvar'}</button></>}>
+      <Field label="Nome"><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Pet, Academia…" autoFocus required maxLength={60} /></Field>
+      {!category && (
+        <Field label="Tipo">
+          <div className="btn-group seg-wide" role="group" aria-label="Tipo">
+            <button type="button" className="btn" aria-pressed={kind === 'expense'} onClick={() => { setKind('expense'); setParentId(''); }}>Despesa</button>
+            <button type="button" className="btn" aria-pressed={kind === 'income'} onClick={() => { setKind('income'); setParentId(''); }}>Receita</button>
+          </div>
+        </Field>
+      )}
+      {hasChildren
+        ? <p className="hint">Esta categoria já tem subcategorias, por isso não pode virar subcategoria de outra.</p>
+        : parentOptions.length > 0 && (
+          <Field label="Dentro de (opcional)">
+            <select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+              <option value="">Categoria própria (sem mãe)</option>
+              {parentOptions.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </Field>
+        )}
+      <Field label="Cor">
+        <div className="color-swatches" role="group" aria-label="Cor da categoria">
+          {CATEGORY_PALETTE.map((c) => (
+            <button key={c} type="button" className={`color-swatch${color === c ? ' on' : ''}`} style={{ background: c }} aria-label={`Cor ${c}`} aria-pressed={color === c} onClick={() => setColor(c)} />
+          ))}
+        </div>
+      </Field>
+      <ErrorText error={err ?? save.error} />
     </Modal>
   );
 }

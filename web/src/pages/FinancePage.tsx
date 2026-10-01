@@ -8,7 +8,7 @@ import { useConfirm } from '../components/ConfirmProvider';
 import { Icon } from '../components/Icon';
 import { ConnectionsTab } from '../components/finance/ConnectionsTab';
 import { InsightsTab } from '../components/finance/InsightsTab';
-import { AccountModal, BudgetModal, ContributeModal, GoalModal, PayInvoiceModal, RecurringModal, TransactionModal } from '../components/finance/modals';
+import { AccountModal, BudgetModal, CategoryModal, ContributeModal, GoalModal, PayInvoiceModal, RecurringModal, TransactionModal } from '../components/finance/modals';
 import { OverviewTab } from '../components/finance/OverviewTab';
 import { PlanningTab } from '../components/finance/PlanningTab';
 import { RecurringTab } from '../components/finance/RecurringTab';
@@ -27,7 +27,8 @@ const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${Str
 
 type Modal =
   | { type: 'tx'; tx?: FinTransaction | null } | { type: 'account'; account?: FinAccount | null } | { type: 'pay'; card: FinAccount; cents: number }
-  | { type: 'budget' } | { type: 'goal'; goal: FinGoal | null } | { type: 'contribute'; goal: FinGoal } | { type: 'recurring'; rec: FinRecurring | null };
+  | { type: 'budget' } | { type: 'goal'; goal: FinGoal | null } | { type: 'contribute'; goal: FinGoal } | { type: 'recurring'; rec: FinRecurring | null }
+  | { type: 'category'; category: FinCategory | null };
 
 export default function FinancePage() {
   const loc = useLocation();
@@ -84,7 +85,7 @@ export default function FinancePage() {
       case 'movimentacoes':
         return <TransactionsTab accounts={accounts} categories={categories} filters={filters} setFilters={setFilters} onEditTx={(tx) => setModal({ type: 'tx', tx })} onNewAccount={() => setModal({ type: 'account' })} onEditAccount={(account) => setModal({ type: 'account', account })} onPay={(card, cents) => setModal({ type: 'pay', card, cents })} />;
       case 'orcamentos':
-        return <PlanningTab budgets={data.budgets} goals={data.goals} categories={categories} onBudget={() => setModal({ type: 'budget' })} onGoal={(goal) => setModal({ type: 'goal', goal })} onContribute={(goal) => setModal({ type: 'contribute', goal })} />;
+        return <PlanningTab budgets={data.budgets} goals={data.goals} categories={categories} onBudget={() => setModal({ type: 'budget' })} onGoal={(goal) => setModal({ type: 'goal', goal })} onContribute={(goal) => setModal({ type: 'contribute', goal })} onCategory={(category) => setModal({ type: 'category', category })} />;
       case 'recorrentes':
         return <RecurringTab items={recurring.data} loading={recurring.isLoading} error={recurring.error} onEdit={(rec) => setModal({ type: 'recurring', rec })} />;
       case 'insights':
@@ -128,6 +129,7 @@ export default function FinancePage() {
       {modal?.type === 'goal' && <GoalModal goal={modal.goal} onClose={close} />}
       {modal?.type === 'contribute' && <ContributeModal goal={modal.goal} onClose={close} />}
       {modal?.type === 'recurring' && <RecurringModal rec={modal.rec} accounts={accounts} categories={categories} onClose={close} />}
+      {modal?.type === 'category' && <CategoryModal category={modal.category} categories={categories} onClose={close} />}
     </PrivacyCtx.Provider>
   );
 }

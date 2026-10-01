@@ -1,23 +1,64 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
 import type { BudgetStatus, FinCategory, FinGoal } from '../../api/types';
 import { useConfirm } from '../ConfirmProvider';
 import { Icon } from '../Icon';
+import { ErrorText } from '../ui';
 import { DemoChip, Money, StateBox, dm } from './shared';
 
 const STATE_TEXT = { ok: 'Dentro do limite', risk: 'Em risco de estourar', exceeded: 'Estourado' } as const;
 
-export function PlanningTab({ budgets, goals, categories, onBudget, onGoal, onContribute }: {
+export function PlanningTab({ budgets, goals, categories, onBudget, onGoal, onContribute, onCategory }: {
   budgets: BudgetStatus[]; goals: FinGoal[]; categories: FinCategory[]; onBudget: () => void; onGoal: (g: FinGoal | null) => void; onContribute: (g: FinGoal) => void;
+  onCategory: (c: FinCategory | null) => void;
 }) {
   const confirm = useConfirm();
   const [notice, setNotice] = useState<string | null>(null);
   const delBudget = useAction((id: string) => api.del(`/finance/budgets/${id}`));
+  const delCategory = useAction((id: string) => api.del(`/finance/categories/${id}`));
   const kanban = useAction((id: string) => api.post(`/finance/goals/${id}/kanban`), () => setNotice('Card criado no Kanban, na primeira coluna do quadro.'));
-  void categories;
+  const removeCategory = async (c: FinCategory) => {
+    const kids = categories.filter((x) => x.parentId === c.id);
+    const warn = kids.length > 0 ? ` Suas ${kids.length} subcategoria(s) (${kids.map((k) => k.name).join(', ')}) somem junto.` : '';
+    if (await confirm(`Apagar a categoria "${c.name}"?${warn} As movimentações já lançadas nela continuam, só ficam sem categoria.`)) delCategory.mutate(c.id);
+  };
   return (
     <div className="plan-grid">
+      <section className="panel">
+        <div className="panel-head"><h2>Categorias</h2><button className="btn small" onClick={() => onCategory(null)}><Icon name="plus" size={14} /> Nova categoria</button></div>
+        {categories.length === 0 ? <StateBox kind="empty" title="Nenhuma categoria ainda" /> : (
+          <ul className="cat-manage-list">
+            {(['expense', 'income'] as const).map((k) => {
+              const top = categories.filter((c) => c.kind === k && !c.parentId);
+              if (top.length === 0) return null;
+              return (
+                <Fragment key={k}>
+                  <li className="cat-manage-group-label">{k === 'expense' ? 'Despesas' : 'Receitas'}</li>
+                  {top.map((p) => (
+                    <Fragment key={p.id}>
+                      <li>
+                        <i className="cat-dot" style={{ background: p.color }} /><span className="name">{p.name}</span>
+                        <button className="icon-btn" aria-label={`Editar ${p.name}`} onClick={() => onCategory(p)}><Icon name="edit" size={14} /></button>
+                        <button className="icon-btn" aria-label={`Excluir ${p.name}`} onClick={() => removeCategory(p)}><Icon name="trash" size={14} /></button>
+                      </li>
+                      {categories.filter((c) => c.parentId === p.id).map((c) => (
+                        <li key={c.id} className="child">
+                          <i className="cat-dot" style={{ background: c.color }} /><span className="name">{c.name}</span>
+                          <button className="icon-btn" aria-label={`Editar ${c.name}`} onClick={() => onCategory(c)}><Icon name="edit" size={14} /></button>
+                          <button className="icon-btn" aria-label={`Excluir ${c.name}`} onClick={() => removeCategory(c)}><Icon name="trash" size={14} /></button>
+                        </li>
+                      ))}
+                    </Fragment>
+                  ))}
+                </Fragment>
+              );
+            })}
+          </ul>
+        )}
+        <ErrorText error={delCategory.error} />
+      </section>
+
       <section className="panel">
         <div className="panel-head"><h2>Limites mensais</h2><button className="btn small" onClick={onBudget}><Icon name="plus" size={14} /> Novo limite</button></div>
         {budgets.length === 0 ? <StateBox kind="empty" title="Nenhum limite definido">Defina quanto quer gastar por mês em uma categoria (ex.: R$ 600 em lazer). Você também pode pedir ao assistente.</StateBox> : (

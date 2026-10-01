@@ -160,6 +160,20 @@ export class FinanceService {
     if (i.parentId) { const p = (await this.repo.categories.get(userId, i.parentId)); if (!p || p.parentId) throw new ValidationError('A categoria-mãe não existe (ou já é uma subcategoria).'); if (p.kind !== i.kind) throw new ValidationError('A subcategoria precisa ser do mesmo tipo da categoria-mãe.'); }
     return this.repo.categories.create(userId, { name: i.name.trim(), kind: i.kind, parentId: i.parentId ?? null, color: i.color ?? '#7C6CF0' });
   }
+  async updateCategory(userId: string, id: string, i: { name?: string; parentId?: string | null; color?: string }) {
+    const current = await this.repo.categories.get(userId, id);
+    if (!current) throw new NotFoundError('Categoria');
+    if (i.name !== undefined && !i.name.trim()) throw new ValidationError('Dê um nome à categoria.');
+    if (i.parentId) {
+      if (i.parentId === id) throw new ValidationError('Uma categoria não pode ser a mãe dela mesma.');
+      const p = await this.repo.categories.get(userId, i.parentId);
+      if (!p || p.parentId) throw new ValidationError('A categoria-mãe não existe (ou já é uma subcategoria).');
+      if (p.kind !== current.kind) throw new ValidationError('A subcategoria precisa ser do mesmo tipo da categoria-mãe.');
+    }
+    const cat = await this.repo.categories.update(userId, id, { name: i.name?.trim(), parentId: 'parentId' in i ? (i.parentId ?? null) : undefined, color: i.color });
+    if (!cat) throw new NotFoundError('Categoria');
+    return cat;
+  }
   async deleteCategory(userId: string, id: string) { if (!(await this.repo.categories.delete(userId, id))) throw new NotFoundError('Categoria'); }
 
   // ---- movimentações -----------------------------------------------------------------------
