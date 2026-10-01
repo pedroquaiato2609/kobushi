@@ -5,7 +5,7 @@ import { AppError, NotFoundError, ValidationError } from '../../domain/errors';
 import { brl } from '../../domain/money';
 import type { FieldCrypto } from '../fieldCrypto';
 import {
-  advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthSummary, patrimony, prevMonth, totals, upcoming, ym,
+  advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthSummary, netRecurringCents, patrimony, prevMonth, totals, upcoming, ym,
 } from './analytics';
 import { DEFAULT_CATEGORIES } from './defaults';
 import { buildDemo } from './demo';
@@ -300,7 +300,7 @@ export class FinanceService {
     for (const r of await this.repo.recurring.list(userId)) {
       if (!r.active || !r.accountId || r.nextDue > addDays(today, 7)) continue;
       await this.createTransaction(userId, {
-        accountId: r.accountId, kind: r.kind, amountCents: r.amountCents, occurredOn: r.nextDue, description: r.description, merchant: r.description,
+        accountId: r.accountId, kind: r.kind, amountCents: netRecurringCents(r), occurredOn: r.nextDue, description: r.description, merchant: r.description,
         categoryId: r.categoryId, status: 'pending', recurringId: r.id, remindDaysBefore: r.remindDaysBefore, remindChannels: r.remindChannels, source: r.source,
       });
       await this.repo.recurring.update(userId, r.id, { nextDue: advanceDue(r) });

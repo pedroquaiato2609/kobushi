@@ -78,7 +78,7 @@ class PgTransactions extends PgCrud<FinTransaction, NewTransaction> {
 
 const ACCOUNT_FIELDS = ['name', 'kind', 'institution', 'numberEnc', 'numberLast4', 'initialBalanceCents', 'creditLimitCents', 'closingDay', 'dueDay', 'invoiceRemindDays', 'invoiceRemindChannels', 'source', 'archived', 'connectionId', 'externalId', 'providerBalanceCents', 'providerBalanceAt'] as const;
 const TX_FIELDS = ['accountId', 'kind', 'amountCents', 'occurredOn', 'description', 'merchant', 'categoryId', 'status', 'transferAccountId', 'recurringId', 'note', 'linkActivityId', 'linkCardId', 'remindDaysBefore', 'remindChannels', 'documentId', 'source', 'externalId'] as const;
-const RECURRING_FIELDS = ['description', 'amountCents', 'kind', 'categoryId', 'accountId', 'frequency', 'nextDue', 'active', 'isSubscription', 'usage', 'remindDaysBefore', 'remindChannels', 'source'] as const;
+const RECURRING_FIELDS = ['description', 'amountCents', 'kind', 'categoryId', 'accountId', 'frequency', 'nextDue', 'active', 'isSubscription', 'usage', 'remindDaysBefore', 'remindChannels', 'source', 'discountPct'] as const;
 const EXPORT_TABLES: [string, string][] = [
   ['accounts', 'id, name, kind, institution, number_last4, initial_balance_cents, credit_limit_cents, closing_day, due_day, source, archived, provider_balance_cents, provider_balance_at, created_at'],
   ['categories', '*'], ['transactions', '*'], ['budgets', '*'], ['goals', '*'], ['recurring', '*'],

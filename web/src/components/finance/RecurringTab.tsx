@@ -6,7 +6,9 @@ import { DemoChip, dm, Money, StateBox } from './shared';
 
 const FREQ = { weekly: 'toda semana', monthly: 'todo mês', yearly: 'todo ano' } as const;
 const USAGE = { often: 'Uso bastante', sometimes: 'Uso às vezes', rarely: 'Quase não uso' } as const;
-const monthly = (r: FinRecurring) => (r.frequency === 'monthly' ? r.amountCents : r.frequency === 'weekly' ? Math.round((r.amountCents * 52) / 12) : Math.round(r.amountCents / 12));
+// líquido de desconto (se houver) — é o que de fato entra/sai da conta
+const netCents = (r: FinRecurring) => (r.discountPct ? Math.round(r.amountCents * (1 - r.discountPct / 100)) : r.amountCents);
+const monthly = (r: FinRecurring) => { const net = netCents(r); return r.frequency === 'monthly' ? net : r.frequency === 'weekly' ? Math.round((net * 52) / 12) : Math.round(net / 12); };
 
 export function RecurringTab({ items, loading, error, onEdit }: { items: FinRecurring[] | undefined; loading: boolean; error: unknown; onEdit: (r: FinRecurring | null) => void }) {
   const usage = useAction((v: { id: string; usage: FinRecurring['usage'] }) => api.patch(`/finance/recurring/${v.id}`, { usage: v.usage }));
@@ -29,7 +31,7 @@ export function RecurringTab({ items, loading, error, onEdit }: { items: FinRecu
             {list.map((r) => (
               <li key={r.id} className={r.active ? '' : 'off'}>
                 <button className="rec-main" onClick={() => onEdit(r)}>
-                  <b>{r.description} <DemoChip source={r.source} />{r.isSubscription && <em className="chip">assinatura</em>}</b>
+                  <b>{r.description} <DemoChip source={r.source} />{r.isSubscription && <em className="chip">assinatura</em>}{r.discountPct ? <em className="chip discount">{r.discountPct}% off</em> : null}</b>
                   <span>{FREQ[r.frequency]} · próximo em {dm(r.nextDue)}/{r.nextDue.slice(0, 4)}{r.remindDaysBefore !== null ? ` · avisa ${r.remindDaysBefore}d antes` : ''}</span>
                 </button>
                 {r.isSubscription && (
@@ -38,7 +40,7 @@ export function RecurringTab({ items, loading, error, onEdit }: { items: FinRecu
                     {Object.entries(USAGE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                   </select>
                 )}
-                <Money cents={r.kind === 'income' ? r.amountCents : -r.amountCents} className={r.kind === 'income' ? 'pos' : ''} />
+                <Money cents={r.kind === 'income' ? netCents(r) : -netCents(r)} className={r.kind === 'income' ? 'pos' : ''} />
                 <button className="btn small ghost" onClick={() => toggle.mutate(r)}>{r.active ? 'Pausar' : 'Reativar'}</button>
               </li>
             ))}

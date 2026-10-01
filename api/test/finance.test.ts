@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthSummary, patrimony, totals, upcoming } from '../src/application/finance/analytics';
+import { advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthlyEquivalent, monthSummary, netRecurringCents, patrimony, totals, upcoming } from '../src/application/finance/analytics';
 import { computeInsights } from '../src/application/finance/insights';
 import { FieldCrypto } from '../src/application/fieldCrypto';
 import { FinanceService } from '../src/application/finance/service';
@@ -97,6 +97,14 @@ test('recorrência avança por frequência, respeitando fim de mês', () => {
   assert.equal(advanceDue({ frequency: 'yearly', nextDue: '2026-02-28' }), '2027-02-28');
 });
 
+test('recorrência: desconto (%) reduz o valor lançado e a equivalência mensal, sem mexer no valor de tabela', () => {
+  assert.equal(netRecurringCents({ amountCents: 10000, discountPct: null }), 10000); // sem desconto: usa o valor cheio
+  assert.equal(netRecurringCents({ amountCents: 10000, discountPct: 20 }), 8000);
+  assert.equal(netRecurringCents({ amountCents: 10000, discountPct: 0 }), 10000); // 0% é "sem desconto": não divide por zero nem quebra
+  assert.equal(monthlyEquivalent({ frequency: 'yearly', amountCents: 120000, discountPct: 50 }), 5000); // 60000 líquidos / 12
+  assert.equal(monthlyEquivalent({ frequency: 'weekly', amountCents: 10000, discountPct: null }), Math.round((10000 * 52) / 12));
+});
+
 test('insights: categoria em alta, fora do padrão e duplicidade, cada um com os dados usados', () => {
   const cats = [cat('food', 'Alimentação'), cat('tech', 'Compras')];
   const txs: FinTransaction[] = [
@@ -127,7 +135,7 @@ test('insights: cobrança recorrente que não apareceu e projeção negativa', (
 });
 
 test('insights: renda comprometida usa recorrências ativas e faturas a pagar', () => {
-  const rec: FinRecurring = { id: 'r1', userId: U, description: 'Aluguel', amountCents: 250000, kind: 'expense', categoryId: null, accountId: 'chk', frequency: 'monthly', nextDue: '2026-10-05', active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'manual' };
+  const rec: FinRecurring = { id: 'r1', userId: U, description: 'Aluguel', amountCents: 250000, kind: 'expense', categoryId: null, accountId: 'chk', frequency: 'monthly', nextDue: '2026-10-05', active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'manual', discountPct: null };
   const incomes = ['2026-06-05', '2026-07-05', '2026-08-05'].map((occurredOn) => tx({ kind: 'income', amountCents: 400000, occurredOn }));
   const ins = computeInsights(data({ accounts: [acc({ id: 'chk' })], recurring: [rec], txs: incomes }));
   const c = ins.find((i) => i.type === 'income_committed')!;

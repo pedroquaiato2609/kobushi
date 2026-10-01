@@ -51,14 +51,14 @@ export function buildDemo(today: string, cat: (name: string) => string | null) {
   const rec = (description: string, cents: number, day: number, extra: Partial<NewRecurring> = {}): NewRecurring => ({
     description, amountCents: cents, kind: 'expense', categoryId: null, accountId: null, frequency: 'monthly',
     nextDue: day >= dd ? clampDay(month, day) : clampDay(nextMonth(month), day),
-    active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'demo', ...extra,
+    active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'demo', discountPct: null, ...extra,
   });
   const recurring = [
     rec('Aluguel', 180000, 8, { categoryId: cat('Aluguel e financiamento') }),
     rec('Internet', 9990, 14, { categoryId: cat('Contas da casa') }),
     rec('Streaming Filmes', 5590, 15, { categoryId: cat('Assinaturas'), isSubscription: true, usage: 'sometimes' }),
     rec('Streaming Música', 2190, 3, { categoryId: cat('Assinaturas'), isSubscription: true, usage: 'often' }),
-    rec('Academia Forte', 12990, 8, { categoryId: cat('Saúde'), isSubscription: true, usage: 'rarely' }),
+    rec('Academia Forte', 12990, 8, { categoryId: cat('Saúde'), isSubscription: true, usage: 'rarely', discountPct: 15 }), // plano anual com desconto
   ];
   return { accounts, txs, recurring, budgets: [{ cat: 'Lazer', cents: 60000 }, { cat: 'Alimentação', cents: 150000 }], goals: [
     { name: `${DEMO_PREFIX} Reserva de emergência`, targetCents: 3000000, currentCents: 1200000, deadline: null },

@@ -791,6 +791,7 @@ input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent);
 .chip.pend { color: var(--max); border-color: rgba(91, 157, 255, 0.5); background: var(--max-bg); }
 .chip.late { color: var(--danger); border-color: rgba(242, 109, 133, 0.5); }
 .chip.ok { color: var(--ideal); border-color: rgba(52, 195, 143, 0.5); background: var(--ideal-bg); }
+.chip.discount { color: var(--ideal); border-color: rgba(52, 195, 143, 0.5); background: var(--ideal-bg); font-weight: 700; }
 .state-box { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 34px 20px; color: var(--ink-soft); border: 1px dashed var(--line-strong); border-radius: var(--radius); }
 .state-box b { color: var(--ink); }
 .state-box p { margin: 0; max-width: 520px; font-size: 13.5px; }

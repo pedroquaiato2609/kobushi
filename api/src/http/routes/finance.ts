@@ -28,6 +28,7 @@ const recurring = z.object({
   description: z.string().min(1).max(120), amountCents: cents.refine((n) => n > 0), kind: z.enum(['expense', 'income']), categoryId: nullableId, accountId: nullableId,
   frequency: z.enum(['weekly', 'monthly', 'yearly']), nextDue: dateStr, active: z.boolean().optional(), isSubscription: z.boolean().optional(),
   usage: z.enum(['often', 'sometimes', 'rarely']).nullable().optional(), remindDaysBefore: z.number().int().min(0).max(30).nullable().optional(), remindChannels: channels.optional(),
+  discountPct: z.number().min(0).max(100).nullable().optional(),
 });
 
 export function financeRoutes(app: FastifyInstance, c: Container) {

@@ -140,7 +140,7 @@ export function upcoming(d: FinData, windowDays = 30): Upcoming[] {
     if (!r.active) continue;
     // só entra se ainda não existe uma movimentação pendente gerada para essa recorrência
     if (d.txs.some((t) => t.recurringId === r.id && t.status === 'pending')) continue;
-    if (r.nextDue <= end && r.nextDue >= addDays(d.today, -30)) out.push({ key: `r-${r.id}`, date: r.nextDue, kind: 'recurring', title: r.description, cents: r.amountCents, direction: r.kind === 'income' ? 'in' : 'out', overdue: r.nextDue < d.today, refId: r.id, accountId: r.accountId });
+    if (r.nextDue <= end && r.nextDue >= addDays(d.today, -30)) out.push({ key: `r-${r.id}`, date: r.nextDue, kind: 'recurring', title: r.description, cents: netRecurringCents(r), direction: r.kind === 'income' ? 'in' : 'out', overdue: r.nextDue < d.today, refId: r.id, accountId: r.accountId });
   }
   for (const a of d.accounts) {
     const inv = cardInvoices(a, d);
@@ -178,6 +178,12 @@ export function advanceDue(r: Pick<FinRecurring, 'frequency' | 'nextDue'>): stri
   return clampDay(nextMonth(ym(r.nextDue)), day);
 }
 
-/** Valor mensal equivalente de uma recorrência (para "renda comprometida"). */
-export const monthlyEquivalent = (r: Pick<FinRecurring, 'frequency' | 'amountCents'>) =>
-  r.frequency === 'monthly' ? r.amountCents : r.frequency === 'weekly' ? Math.round((r.amountCents * 52) / 12) : Math.round(r.amountCents / 12);
+/** Valor que será efetivamente lançado numa recorrência (já com o desconto cadastrado, se houver). */
+export const netRecurringCents = (r: Pick<FinRecurring, 'amountCents' | 'discountPct'>) =>
+  r.discountPct ? Math.round(r.amountCents * (1 - r.discountPct / 100)) : r.amountCents;
+
+/** Valor mensal equivalente de uma recorrência, já líquido de desconto (para "renda comprometida"). */
+export const monthlyEquivalent = (r: Pick<FinRecurring, 'frequency' | 'amountCents' | 'discountPct'>) => {
+  const net = netRecurringCents(r);
+  return r.frequency === 'monthly' ? net : r.frequency === 'weekly' ? Math.round((net * 52) / 12) : Math.round(net / 12);
+};

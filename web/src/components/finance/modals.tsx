@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
 import { useAction } from '../../api/hooks';
 import type { Activity, FinAccount, FinCategory, FinGoal, FinRecurring, FinTransaction, TxKind } from '../../api/types';
-import { centsToInput, parseMoney } from '../../lib/money';
+import { brl, centsToInput, parseMoney } from '../../lib/money';
 import { ErrorText, Field, Modal } from '../ui';
 import { useConfirm } from '../ConfirmProvider';
 import { useReauth } from '../AuthGate';
@@ -11,6 +11,7 @@ import { ACCOUNT_KIND, CATEGORY_PALETTE, CategorySelect, suggestCategoryId } fro
 
 const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const KINDS: { id: TxKind; label: string }[] = [{ id: 'expense', label: 'Despesa' }, { id: 'income', label: 'Receita' }, { id: 'transfer', label: 'Transferência' }];
+const FREQ_LABEL = { weekly: 'semana', monthly: 'mês', yearly: 'ano' } as const;
 
 function Footer({ busy, onDelete, label = 'Salvar' }: { busy: boolean; onDelete?: () => void; label?: string }) {
   return (
@@ -319,19 +320,26 @@ export function RecurringModal({ rec, accounts, categories, onClose }: { rec?: F
   const [accountId, setAccountId] = useState(rec?.accountId ?? usable[0]?.id ?? '');
   const [categoryId, setCategoryId] = useState(rec?.categoryId ?? '');
   const [sub, setSub] = useState(rec?.isSubscription ?? false);
+  const [discount, setDiscount] = useState(rec?.discountPct != null ? String(rec.discountPct).replace('.', ',') : '');
   const [remind, setRemind] = useState(rec?.remindDaysBefore === null || rec?.remindDaysBefore === undefined ? '' : String(rec.remindDaysBefore));
   const [err, setErr] = useState<Error | null>(null);
   const save = useAction((b: Record<string, unknown>) => (rec ? api.patch(`/finance/recurring/${rec.id}`, b) : api.post('/finance/recurring', b)), onClose);
   const del = useAction(() => api.del(`/finance/recurring/${rec?.id}`), onClose);
+  const discountNum = discount.trim() === '' ? 0 : Number(discount.replace(',', '.'));
+  const netCents = (() => { const c = parseMoney(amount); return c && discountNum > 0 ? Math.round(c * (1 - discountNum / 100)) : null; })();
   return (
     <Modal title={rec ? 'Editar recorrência' : 'Nova recorrência ou assinatura'} onClose={onClose}
-      onSubmit={() => { const c = parseMoney(amount); if (!c || c <= 0) return setErr(new Error('Informe um valor maior que zero.')); if (!accountId) return setErr(new Error('Escolha uma conta.')); setErr(null); save.mutate({ description, amountCents: c, kind, frequency, nextDue, accountId, categoryId: categoryId || null, isSubscription: sub, remindDaysBefore: remind === '' ? null : Number(remind) }); }}
+      onSubmit={() => { const c = parseMoney(amount); if (!c || c <= 0) return setErr(new Error('Informe um valor maior que zero.')); if (!accountId) return setErr(new Error('Escolha uma conta.')); if (discountNum < 0 || discountNum > 100) return setErr(new Error('O desconto precisa ficar entre 0% e 100%.')); setErr(null); save.mutate({ description, amountCents: c, kind, frequency, nextDue, accountId, categoryId: categoryId || null, isSubscription: sub, discountPct: discountNum > 0 ? discountNum : null, remindDaysBefore: remind === '' ? null : Number(remind) }); }}
       footer={<Footer busy={save.isPending} onDelete={rec ? async () => { if (await confirm('Excluir esta recorrência?')) del.mutate(undefined); } : undefined} />}>
       <Field label="Descrição"><input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Internet" required autoFocus /></Field>
       <div className="form-row">
-        <Field label="Valor (R$)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <Field label="Valor de tabela (R$)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
         <Field label="Tipo"><select value={kind} onChange={(e) => setKind(e.target.value as 'expense' | 'income')}><option value="expense">Despesa</option><option value="income">Receita</option></select></Field>
       </div>
+      <Field label="Desconto (%) — opcional">
+        <input inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ex.: 10" />
+        {netCents !== null && <small className="hint">Com desconto: <b>{brl(netCents)}</b> por {FREQ_LABEL[frequency]}.</small>}
+      </Field>
       <div className="form-row">
         <Field label="Repete"><select value={frequency} onChange={(e) => setFrequency(e.target.value as FinRecurring['frequency'])}><option value="monthly">Todo mês</option><option value="weekly">Toda semana</option><option value="yearly">Todo ano</option></select></Field>
         <Field label="Próximo vencimento"><input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} required /></Field>

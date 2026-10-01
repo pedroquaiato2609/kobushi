@@ -33,6 +33,8 @@ export interface FinRecurring {
   categoryId: string | null; accountId: string | null; frequency: 'weekly' | 'monthly' | 'yearly'; nextDue: string;
   active: boolean; isSubscription: boolean; usage: Usage | null; remindDaysBefore: number | null;
   remindChannels: NotifyChannel[]; source: 'manual' | 'import' | 'demo';
+  /** Desconto (%) aplicado na hora de gerar a movimentação — o amountCents continua sendo o valor de tabela. */
+  discountPct: number | null;
 }
 
 /** Tudo o que os cálculos precisam. `today` é injetado para os cálculos serem determinísticos (e testáveis). */

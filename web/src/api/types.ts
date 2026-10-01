@@ -159,7 +159,7 @@ export interface FinGoal { id: string; name: string; targetCents: number; curren
 export interface FinRecurring {
   id: string; description: string; amountCents: number; kind: 'expense' | 'income'; categoryId: string | null; accountId: string | null;
   frequency: 'weekly' | 'monthly' | 'yearly'; nextDue: string; active: boolean; isSubscription: boolean; usage: 'often' | 'sometimes' | 'rarely' | null;
-  remindDaysBefore: number | null; source: string;
+  remindDaysBefore: number | null; source: string; discountPct: number | null;
 }
 export interface CategorySlice { categoryId: string | null; name: string; color: string; cents: number; children: { categoryId: string | null; name: string; cents: number }[] }
 export interface MonthSummary { month: string; incomeCents: number; expenseCents: number; netCents: number; pendingIncomeCents: number; pendingExpenseCents: number; byCategory: CategorySlice[] }
