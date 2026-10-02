@@ -77,11 +77,13 @@ export function PatrimonyChart({ data }: { data: { month: string; netCents: numb
 }
 
 /** Rosca de gastos por categoria: o arco de cada fatia é proporcional ao valor. */
-export function Donut({ slices, total }: { slices: { name: string; cents: number; color: string }[]; total: number }) {
+export function Donut({ slices, total, label = 'gastos', ariaLabel = 'Gastos por categoria', centerCents }: {
+  slices: { name: string; cents: number; color: string }[]; total: number; label?: string; ariaLabel?: string; centerCents?: number;
+}) {
   const hide = useContext(PrivacyCtx);
   let acc = 0;
   return (
-    <svg viewBox="0 0 42 42" className="donut" role="img" aria-label="Gastos por categoria">
+    <svg viewBox="0 0 42 42" className="donut" role="img" aria-label={ariaLabel}>
       <circle cx="21" cy="21" r="15.9155" className="donut-bg" />
       {total > 0 && slices.map((s) => {
         const pct = (s.cents / total) * 100;
@@ -89,8 +91,8 @@ export function Donut({ slices, total }: { slices: { name: string; cents: number
         acc += pct;
         return el;
       })}
-      <text x="21" y="20" textAnchor="middle" className="donut-l">gastos</text>
-      <text x="21" y="26" textAnchor="middle" className="donut-v">{hide ? '••••' : brlShort(total)}</text>
+      <text x="21" y="20" textAnchor="middle" className="donut-l">{label}</text>
+      <text x="21" y="26" textAnchor="middle" className="donut-v">{hide ? '••••' : brlShort(centerCents ?? total)}</text>
     </svg>
   );
 }
