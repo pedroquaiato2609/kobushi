@@ -48,12 +48,17 @@ src/
     types.ts              tipos espelhados de web/src/api/types.ts (só o que já tem tela)
   auth/AuthContext.tsx    estado de sessão (usuário, login, logout, boot)
   navigation/
-    RootNavigator.tsx      abas: Finanças, Leitura, Academia, Assistente
+    RootNavigator.tsx      abas: Finanças, Leitura, Academia, Mais, Assistente
     FinanceStack.tsx         Finanças → movimentações, contas, renda/recorrências,
                              categorias (cada uma com cadastro/edição)
     ReadingStack.tsx         Leitura → detalhe do livro, novo livro, todos os livros
     GymStack.tsx              Academia → treino ativo, biblioteca de exercícios,
                               novo treino, novo/editar exercício
+    MoreStack.tsx             Mais → menu com os 8 módulos menores (Agenda, Atividades,
+                              Lembretes, Deslocamentos, Princípios, Estudos, Kanban,
+                              Documentos) — mesmo padrão do app web, que também separa
+                              "abas principais" de um menu "Mais" (lá por espaço na barra
+                              inferior; aqui porque 9 abas não caberiam/ficariam legíveis)
   screens/
     LoginScreen.tsx
     DashboardScreen.tsx   Visão geral de Finanças (saldo, receitas/despesas, renda
@@ -86,6 +91,52 @@ src/
     chat/
       ChatScreen.tsx          conversa com o assistente (envio síncrono, sem streaming —
                               ver nota abaixo) + cartão de aprovar/rejeitar ações pendentes
+    agenda/
+      AgendaScreen.tsx         dia selecionado (anterior/próximo) em formato de LISTA
+                              cronológica — atividades aplicáveis, deslocamentos e eventos,
+                              com nível do dia direto ali. Não é a grade visual (TimeGrid)
+                              do app web: pra tela de celular uma lista por horário é mais
+                              apropriado, e evitou reconstruir um componente de calendário
+                              inteiro só pro mobile
+    activities/
+      ActivitiesScreen.tsx     lista (filtro por tipo, arquivadas), nível do dia inline
+      NewActivityScreen.tsx    cria OU edita (versão reduzida do formulário do app web:
+                              um único conjunto de blocos de horário, sem horário
+                              diferente por dia da semana, sem sugestão de horário por IA)
+    reminders/
+      RemindersScreen.tsx      lista unificada (lembrete avulso + atividade + deslocamento
+                              + evento) igual à do app web; editar um evento ainda não
+                              existe no mobile (só mostra, não abre)
+      NewReminderScreen.tsx    cria OU edita um lembrete avulso
+    commutes/
+      CommutesScreen.tsx + NewCommuteScreen.tsx   deslocamento ancorado numa atividade de
+                              horário definido, com prévia dos horários calculados
+    principles/
+      PrinciplesScreen.tsx     mesma trava por senha do Cofre do app web (sem cripto no
+                              cliente — o servidor guarda o desbloqueio por um tempo),
+                              pastas, lista de princípios
+      NewPrincipleScreen.tsx   cria OU edita
+    kanban/
+      KanbanScreen.tsx         quadros, colunas e cards — SEM arrastar-e-soltar (não tem
+                              lib de drag-and-drop instalada, e não dava pra verificar uma
+                              dependência nativa nova sem gerar um build); mover um card de
+                              coluna é feito no detalhe do card, escolhendo a nova coluna
+      CardDetailScreen.tsx     título, descrição em texto simples (o app web usa editor
+                              rico), coluna, prazo, atividade relacionada, apagar
+    documents/
+      DocumentsScreen.tsx      pastas, busca, nota/lista/arquivo — SEM enviar arquivo
+                              nesta versão (precisaria de expo-document-picker, uma
+                              dependência nativa nova ainda sem build pra testar); um
+                              arquivo já enviado pelo app web aparece e dá pra abrir/baixar
+                              no navegador do celular
+      NewDocScreen.tsx         nota em texto simples, lista em formato de checklist, ou
+                              visualização de arquivo
+    study/
+      StudyScreen.tsx          abas Notas / Planos de estudo
+      NewStudyNoteScreen.tsx   nota em texto simples (o app web usa um editor rico/TipTap
+                              que guarda HTML — uma nota editada aqui perde a formatação
+                              se reaberta no app web)
+      StudyPlanDetailScreen.tsx lista de aulas com check, adicionar aula nova
 ```
 
 ## O chat não usa streaming (por enquanto)
@@ -157,6 +208,19 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
 - [x] **Assistente**: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
       confirmações antes de gravar algo) — ver a nota sobre streaming acima; sempre
       reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio
+- [x] **Mais** (menu com os 8 módulos abaixo, todos verificados ponta a ponta contra um
+      backend de teste — criar, ver e, quando faz sentido, editar/apagar):
+      - **Agenda**: dia selecionado em lista cronológica (atividades, deslocamentos, eventos)
+      - **Atividades**: cadastro completo (tipo, horário fixo/período/livre, dias da
+        semana, níveis, lembrete), nível do dia
+      - **Lembretes**: lista unificada (avulsos + atividades + deslocamentos + eventos),
+        **+ novo lembrete avulso**
+      - **Deslocamentos**: ancorado numa atividade de horário definido, com prévia do
+        horário calculado por dia da semana
+      - **Princípios**: protegidos pela senha do Cofre, organizados em pastas
+      - **Estudos**: notas (texto simples) e planos de estudo (aulas com check)
+      - **Kanban**: quadros, colunas, cards (mover de coluna sem arrastar, pelo detalhe)
+      - **Documentos**: notas, listas (checklist) e arquivos em pastas, com busca
 
 ## Bug corrigido: trocar de aba ficava "congelado" na tela anterior
 
@@ -173,17 +237,25 @@ tempo todo (custo pequeno de memória, nada perceptível com só 4 abas).
 
 ## Próximos passos
 
-1. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
-   — nada disso existe no app mobile ainda
-2. Os módulos menores (Estudos, Princípios, Kanban, Documentos) — ainda sem prioridade
-   definida
-3. **Login com Google** — combinado com o usuário, esperando ele criar o projeto no
+1. **Login com Google** — combinado com o usuário, esperando ele criar o projeto no
    Google Cloud Console e mandar as credenciais (client ID/secret web + Android)
-4. Fechar a lacuna de Academia: metas de treino com níveis mínimo/ideal/máximo (hoje o
+2. Fechar a lacuna de Academia: metas de treino com níveis mínimo/ideal/máximo (hoje o
    app mobile só grava o nível "ideal" ao criar um treino novo)
-5. Chat: múltiplas conversas (hoje só usa uma) e os botões de resposta rápida/atalho que
+3. Chat: múltiplas conversas (hoje só usa uma) e os botões de resposta rápida/atalho que
    o app web mostra
+4. Dentro dos módulos do menu "Mais", o que ficou de fora por exigir uma dependência
+   nativa nova (sem build pra testar ainda) ou por ser uma reescrita grande demais pra
+   essa passada:
+   - Upload de arquivo em Documentos (precisa de `expo-document-picker`)
+   - Editor de texto rico em Estudos/Documentos/Kanban (hoje é texto simples; o app web
+     usa TipTap, que não roda em React Native)
+   - Arrastar-e-soltar no Kanban (mover card de coluna já funciona, só não por drag)
+   - Editar evento da Agenda/Lembretes a partir do mobile (só mostra, não edita)
+   - Horário por dia da semana diferente numa mesma atividade, e sugestão de horário
+     por IA, no formulário de Atividades
+   - Agenda como grade visual (TimeGrid) em vez de lista — plausível, mas é um
+     componente de calendário à parte, não só "mais uma tela"
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
-tela(s) em `src/screens/`, e adicionar ao `RootNavigator` (provavelmente virando uma
-navegação em abas nessa altura, em vez de só uma stack).
+tela(s) em `src/screens/`, e adicionar ao `MoreStack` (ou ao `RootNavigator`, se for
+grande o bastante pra virar uma aba própria).

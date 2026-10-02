@@ -9,14 +9,18 @@ import { colors } from '../theme';
 import { FinanceStack } from './FinanceStack';
 import { GymStack } from './GymStack';
 import { ReadingStack } from './ReadingStack';
+import { MoreStack } from './MoreStack';
 
 // Cada módulo é uma aba. Finanças, Leitura e Academia têm sua própria pilha de navegação (lista →
-// detalhe/treino ativo/cadastro); o Assistente é uma tela só.
-export type RootTabParamList = { Financas: undefined; Leitura: undefined; Academia: undefined; Assistente: undefined };
+// detalhe/treino ativo/cadastro); o Assistente é uma tela só. "Mais" segue o mesmo padrão do app web
+// (lá, os itens não marcados como `primary` ficam num menu "Mais" em vez de ocupar a barra inferior):
+// Agenda, Atividades, Lembretes, Deslocamentos, Princípios, Estudos, Kanban e Documentos moram lá dentro,
+// porque 9 abas na barra inferior não caberiam/ficariam ilegíveis num celular.
+export type RootTabParamList = { Financas: undefined; Leitura: undefined; Academia: undefined; Mais: undefined; Assistente: undefined };
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const TAB_ICON: Record<keyof RootTabParamList, IconName> = { Financas: 'wallet', Leitura: 'book', Academia: 'dumbbell', Assistente: 'sparkles' };
-const TAB_LABEL: Record<keyof RootTabParamList, string> = { Financas: 'Finanças', Leitura: 'Leitura', Academia: 'Academia', Assistente: 'Assistente' };
+const TAB_ICON: Record<keyof RootTabParamList, IconName> = { Financas: 'wallet', Leitura: 'book', Academia: 'dumbbell', Mais: 'more', Assistente: 'sparkles' };
+const TAB_LABEL: Record<keyof RootTabParamList, string> = { Financas: 'Finanças', Leitura: 'Leitura', Academia: 'Academia', Mais: 'Mais', Assistente: 'Assistente' };
 
 function AppTabs() {
   return (
@@ -43,6 +47,7 @@ function AppTabs() {
       <Tab.Screen name="Financas" component={FinanceStack} />
       <Tab.Screen name="Leitura" component={ReadingStack} />
       <Tab.Screen name="Academia" component={GymStack} />
+      <Tab.Screen name="Mais" component={MoreStack} />
       <Tab.Screen name="Assistente" component={ChatScreen} />
     </Tab.Navigator>
   );

@@ -106,3 +106,81 @@ export interface AgentAction {
   args: Record<string, unknown>; result: unknown; status: 'pending' | 'executed' | 'denied' | 'rejected' | 'error';
   summary?: string; createdAt: string; resolvedAt: string | null;
 }
+
+// ---- Atividades / Agenda / Lembretes / Deslocamentos -----------------------------------------
+export type ActivityKind = 'obligation' | 'goal' | 'special';
+export type TimeMode = 'fixed' | 'period' | 'free';
+export type Period = 'morning' | 'afternoon' | 'night';
+export type NotifyChannel = 'push' | 'whatsapp';
+export type Repeat = 'none' | 'daily' | 'weekly';
+
+export interface TimeBlock { startTime: string; endTime: string | null }
+export interface WeekdayBlocks { weekday: number; blocks: TimeBlock[] }
+export interface Activity {
+  id: string; name: string; kind: ActivityKind; timeMode: TimeMode; period: Period | null;
+  blocks: TimeBlock[]; weekdayBlocks: WeekdayBlocks[]; notBefore: string | null; notAfter: string | null; durationMin: number;
+  suggestedStart: string | null; suggestedReason: string; purpose: string; principle: string;
+  minDesc: string; idealDesc: string; maxDesc: string; weekdays: number[]; active: boolean;
+  remindTime: string | null; remindMinutes: 5 | 10 | 15 | 30 | 60 | null; remindChannels: NotifyChannel[]; createdAt: string;
+}
+export interface DayPlanItem extends Activity { executionLevel: Level | null; executionNote: string }
+export interface DayPlan { date: string; weekday: number; items: DayPlanItem[] }
+export interface ActivityMatrixRow {
+  activityId: string; name: string; kind: ActivityKind;
+  cells: { date: string; applicable: boolean; level: Level | null }[];
+  streak: number; counts: { min: number; ideal: number; max: number; missed: number };
+}
+export interface ActivityMatrix { from: string; to: string; rows: ActivityMatrixRow[] }
+
+export interface CalendarEvent {
+  id: string; title: string; description: string; start: string; end: string; activityId: string | null;
+  location: string; remindMinutes: number | null; remindChannels: NotifyChannel[];
+}
+
+export type CommuteDirection = 'before' | 'after';
+export interface Commute {
+  id: string; name: string; activityId: string; direction: CommuteDirection; durationMin: number; active: boolean;
+  remindTime: string | null; remindMinutes: 5 | 10 | 15 | 30 | 60 | null; remindChannels: NotifyChannel[];
+}
+
+export interface Reminder {
+  id: string; title: string; body: string; remindAt: string; repeat: Repeat; channels: NotifyChannel[];
+  activityId: string | null; status: 'pending' | 'done'; lastFiredAt: string | null;
+}
+
+// ---- Kanban -------------------------------------------------------------------------------
+export interface Card {
+  id: string; columnId: string; title: string; description: string; position: number;
+  dueDate: string | null; activityId: string | null;
+}
+export interface Column { id: string; boardId: string; name: string; position: number; cards: Card[] }
+export interface Board { id: string; name: string }
+export interface BoardFull extends Board { columns: Column[] }
+
+// ---- Princípios (protegidos pela senha do Cofre) -----------------------------------------------
+export interface VaultStatus { configured: boolean; unlocked: boolean; unlockedUntil: number | null }
+export interface PrincipleReminder { enabled: boolean; times: string[]; weekdays: number[]; channels: NotifyChannel[] }
+export interface PrincipleFolder { id: string; name: string; createdAt: string; reminder: PrincipleReminder }
+export interface Principle { id: string; folderId: string | null; title: string | null; content: string | null; locked: boolean; updatedAt: string }
+
+// ---- Estudos --------------------------------------------------------------------------------
+export type LinkedType = 'book' | 'workout' | 'activity';
+export interface StudyFolder { id: string; name: string; createdAt: string }
+export interface StudyNoteBacklink { id: string; title: string }
+export interface StudyNote {
+  id: string; title: string; content: string; linkedType: LinkedType | null; linkedId: string | null;
+  folderId: string | null; pinned: boolean; tags: string[];
+  archived: boolean; createdAt: string; updatedAt: string;
+}
+export interface StudyNoteView extends StudyNote { linkedNoteIds: string[]; backlinks: StudyNoteBacklink[] }
+export interface Lesson { id: string; title: string; description: string; done: boolean }
+export interface StudyPlan { id: string; subject: string; title: string; lessons: Lesson[]; progressPct: number; archived: boolean; createdAt: string; updatedAt: string }
+
+// ---- Documentos -------------------------------------------------------------------------------
+export type DocKind = 'note' | 'list' | 'file';
+export interface Folder { id: string; parentId: string | null; name: string; agentVisible: boolean }
+export interface DocListItem {
+  id: string; folderId: string | null; title: string; kind: DocKind; summary: string; mime: string | null;
+  sizeBytes: number | null; createdAt: string; updatedAt: string; excerpt: string;
+}
+export interface Doc extends Omit<DocListItem, 'excerpt'> { content: string }
