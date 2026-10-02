@@ -9,6 +9,15 @@ export interface FinAccount {
 }
 export interface FinCategory { id: string; name: string; parentId: string | null; kind: 'expense' | 'income'; color: string }
 export interface FinRefs { accounts: FinAccount[]; categories: FinCategory[] }
+export interface FinTransaction {
+  id: string; accountId: string; kind: TxKind; amountCents: number; occurredOn: string; description: string; merchant: string; categoryId: string | null;
+  status: 'pending' | 'confirmed'; transferAccountId: string | null; note: string; linkActivityId: string | null; remindDaysBefore: number | null; source: string;
+}
+export interface FinRecurring {
+  id: string; description: string; amountCents: number; kind: 'expense' | 'income'; categoryId: string | null; accountId: string | null;
+  frequency: 'weekly' | 'monthly' | 'yearly'; nextDue: string; active: boolean; isSubscription: boolean; usage: 'often' | 'sometimes' | 'rarely' | null;
+  remindDaysBefore: number | null; source: string; discountPct: number | null;
+}
 export interface FinGoal { id: string; name: string; targetCents: number; currentCents: number; deadline: string | null; kanbanCardId: string | null; source?: string }
 export interface CategorySlice { categoryId: string | null; name: string; color: string; cents: number; children: { categoryId: string | null; name: string; cents: number }[] }
 export interface MonthSummary { month: string; incomeCents: number; expenseCents: number; netCents: number; pendingIncomeCents: number; pendingExpenseCents: number; byCategory: CategorySlice[] }

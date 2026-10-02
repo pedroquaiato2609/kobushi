@@ -4,6 +4,7 @@ import type { Book, BookStatus } from '../api/types';
 export const STATUS_LABEL: Record<BookStatus, string> = {
   quero_ler: 'Quero ler', lendo: 'Lendo', pausado: 'Pausado', lido: 'Lido', abandonado: 'Abandonado',
 };
+export const STATUS_ORDER: BookStatus[] = ['lendo', 'quero_ler', 'pausado', 'lido', 'abandonado'];
 
 export function progressPct(book: Pick<Book, 'currentPage' | 'totalPages'>): number | null {
   if (!book.totalPages || book.totalPages <= 0) return null;

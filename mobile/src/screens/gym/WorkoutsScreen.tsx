@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import type { GymActive, GymWorkout } from '../../api/types';
 import { Icon } from '../../components/Icon';
@@ -12,6 +13,7 @@ import type { GymStackParamList } from '../../navigation/GymStack';
 type Props = NativeStackScreenProps<GymStackParamList, 'WorkoutsHome'>;
 
 export function WorkoutsScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const active = useQuery({ queryKey: ['gym-active'], queryFn: () => api.get<GymActive | null>('/gym/sessions/active') });
   const workouts = useQuery({ queryKey: ['gym-workouts'], queryFn: () => api.get<GymWorkout[]>('/gym/workouts'), enabled: active.data === null });
@@ -28,17 +30,26 @@ export function WorkoutsScreen({ navigation }: Props) {
     }
   }
 
-  if (active.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (active.isLoading) return <View style={[styles.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
 
   return (
     <ScrollView
-      style={styles.screen} contentContainerStyle={styles.content}
+      style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
       refreshControl={<RefreshControl refreshing={active.isFetching || workouts.isFetching} onRefresh={() => { void active.refetch(); void workouts.refetch(); }} tintColor={colors.accent} />}
     >
       <View style={styles.headerRow}>
         <Text style={styles.header}>Academia</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewExercise')}>
-          <Icon name="plus" size={13} color="#fff" /><Text style={styles.newBtnText}>Exercício</Text>
+        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewWorkout')}>
+          <Icon name="plus" size={13} color="#fff" /><Text style={styles.newBtnText}>Treino</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.quickNav}>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('ExerciseLibrary')}>
+          <Icon name="list" size={16} color={colors.accent} /><Text style={styles.quickBtnText}>Exercícios</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('NewExercise')}>
+          <Icon name="plus" size={16} color={colors.accent} /><Text style={styles.quickBtnText}>Novo exercício</Text>
         </TouchableOpacity>
       </View>
 
@@ -87,6 +98,9 @@ const styles = StyleSheet.create({
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
   header: { fontSize: 24, fontWeight: '700', color: colors.ink },
   newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  quickNav: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  quickBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 999, paddingVertical: 8, paddingHorizontal: spacing.md },
+  quickBtnText: { fontSize: 12, fontWeight: '600', color: colors.ink },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   activeCard: { backgroundColor: colors.accent, borderRadius: radius, padding: spacing.lg, gap: 4 },
   activeTitle: { color: '#fff', fontWeight: '700', fontSize: 16 },

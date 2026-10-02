@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../api/client';
 import type { FinOverview, Upcoming } from '../api/types';
 import { Icon } from '../components/Icon';
@@ -35,14 +36,15 @@ function ProgressBar({ pct, tone }: { pct: number; tone: 'ok' | 'risk' | 'exceed
 
 export function DashboardScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
+  const insets = useSafeAreaInsets();
   const overview = useQuery({ queryKey: ['fin-overview'], queryFn: () => api.get<FinOverview>('/finance/overview') });
 
   if (overview.isLoading) {
-    return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+    return <View style={[styles.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
   }
   if (overview.error || !overview.data) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { paddingTop: insets.top }]}>
         <Text style={styles.errorTitle}>Não consegui carregar suas finanças</Text>
         <Text style={styles.errorMsg}>{(overview.error as Error | undefined)?.message}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => void overview.refetch()}><Text style={styles.retryText}>Tentar de novo</Text></TouchableOpacity>
@@ -60,7 +62,7 @@ export function DashboardScreen({ navigation }: Props) {
 
   return (
     <ScrollView
-      style={styles.screen} contentContainerStyle={styles.content}
+      style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
       refreshControl={<RefreshControl refreshing={overview.isFetching} onRefresh={() => void overview.refetch()} tintColor={colors.accent} />}
     >
       <View style={styles.header}>
@@ -74,6 +76,21 @@ export function DashboardScreen({ navigation }: Props) {
           </TouchableOpacity>
           <TouchableOpacity onPress={() => void logout()}><Text style={styles.logout}>Sair</Text></TouchableOpacity>
         </View>
+      </View>
+
+      <View style={styles.quickNav}>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Transactions')}>
+          <Icon name="list" size={18} color={colors.accent} /><Text style={styles.quickBtnText}>Movimentações</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Recurring')}>
+          <Icon name="clock" size={18} color={colors.accent} /><Text style={styles.quickBtnText}>Renda / Recorrências</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Accounts')}>
+          <Icon name="wallet" size={18} color={colors.accent} /><Text style={styles.quickBtnText}>Contas</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.quickBtn} onPress={() => navigation.navigate('Categories')}>
+          <Icon name="kanban" size={18} color={colors.accent} /><Text style={styles.quickBtnText}>Categorias</Text>
+        </TouchableOpacity>
       </View>
 
       {d.hasDemo && (
@@ -147,6 +164,9 @@ const styles = StyleSheet.create({
   newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   logout: { color: colors.accent, fontWeight: '600', fontSize: 14 },
+  quickNav: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  quickBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 999, paddingVertical: 8, paddingHorizontal: spacing.md },
+  quickBtnText: { fontSize: 12, fontWeight: '600', color: colors.ink },
   demoBanner: { backgroundColor: '#fff4df', borderRadius: 10, padding: spacing.sm, borderWidth: 1, borderColor: '#f2d9ad' },
   demoText: { fontSize: 12, color: '#8a5a0a' },
   tilesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

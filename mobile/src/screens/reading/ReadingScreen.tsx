@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import type { Book, ReadingOverview } from '../../api/types';
 import { Icon } from '../../components/Icon';
@@ -27,12 +28,13 @@ function BookRow({ book, onPress }: { book: Book; onPress: () => void }) {
 }
 
 export function ReadingScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const overview = useQuery({ queryKey: ['reading-overview'], queryFn: () => api.get<ReadingOverview>('/reading/overview') });
 
-  if (overview.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (overview.isLoading) return <View style={[styles.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
   if (overview.error || !overview.data) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, { paddingTop: insets.top }]}>
         <Text style={styles.errorTitle}>Não consegui carregar sua estante</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={() => void overview.refetch()}><Text style={styles.retryText}>Tentar de novo</Text></TouchableOpacity>
       </View>
@@ -44,7 +46,7 @@ export function ReadingScreen({ navigation }: Props) {
 
   return (
     <ScrollView
-      style={styles.screen} contentContainerStyle={styles.content}
+      style={styles.screen} contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.lg }]}
       refreshControl={<RefreshControl refreshing={overview.isFetching} onRefresh={() => void overview.refetch()} tintColor={colors.accent} />}
     >
       <View style={styles.headerRow}>
@@ -73,6 +75,10 @@ export function ReadingScreen({ navigation }: Props) {
       ) : (
         <View style={styles.panel}>{d.wantToRead.map((b) => <BookRow key={b.id} book={b} onPress={() => openBook(b.id)} />)}</View>
       )}
+
+      <TouchableOpacity style={styles.allBooksBtn} onPress={() => navigation.navigate('AllBooks')}>
+        <Text style={styles.allBooksBtnText}>Ver todos os livros ({d.totalBooks})</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -102,4 +108,6 @@ const styles = StyleSheet.create({
   bookBarTrack: { height: 5, borderRadius: 999, backgroundColor: colors.sunken, overflow: 'hidden', marginTop: 2 },
   bookBarFill: { height: '100%', borderRadius: 999, backgroundColor: colors.accent },
   bookPct: { fontSize: 12, fontWeight: '700', color: colors.accent },
+  allBooksBtn: { alignItems: 'center', paddingVertical: spacing.sm, marginTop: spacing.sm },
+  allBooksBtnText: { color: colors.accent, fontWeight: '600', fontSize: 13 },
 });

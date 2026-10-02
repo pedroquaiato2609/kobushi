@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { api } from '../../api/client';
 import type { AgentAction, ChatMessage, Conversation } from '../../api/types';
 import { ACTION_LABEL, RESOURCE_LABEL } from '../../lib/labels';
@@ -13,6 +14,7 @@ import { colors, radius, spacing } from '../../theme';
 // (pode demorar alguns segundos se o assistente usar ferramentas). Ações que exigem confirmação (ex.:
 // qualquer gravação em Finanças) aparecem como um cartão de Aprovar/Rejeitar, igual no app web.
 export function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const qc = useQueryClient();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
@@ -62,7 +64,7 @@ export function ChatScreen() {
   const visible = (messages.data ?? []).filter((m) => m.role !== 'tool' && (m.content || m.role === 'note'));
 
   return (
-    <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
+    <KeyboardAvoidingView style={[styles.screen, { paddingTop: insets.top }]} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={90}>
       <Text style={styles.header}>Assistente</Text>
 
       {!conversationId || messages.isLoading ? (

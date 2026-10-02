@@ -31,12 +31,17 @@ Essa ponte fica toda em `src/api/client.ts`.
 ```
 src/
   config.ts            URL base da API (EXPO_PUBLIC_API_URL ou produção por padrão)
-  theme.ts              paleta de cores (espelho de web/src/styles.css, modo claro)
+  theme.ts              paleta de cores + raio de borda (espelho de web/src/styles.css)
+  components/Icon.tsx    ícones SVG finos — cópia fiel de web/src/components/Icon.tsx
+                         (mesmos paths, mesmo traço), usando react-native-svg. Nada de
+                         emoji na navegação/ações; o 🏆 de recorde pessoal é a única
+                         exceção, porque o próprio app web usa esse emoji ali também
   lib/
-    money.ts             formatação de dinheiro (espelho de web/src/lib/money.ts)
+    money.ts             formatação/parsing de dinheiro (espelho de web/src/lib/money.ts)
     dates.ts              data de hoje (ISO) e formatação dd/mm
     gym.ts                 rótulos de músculo/equipamento (espelho de web/src/lib/muscles.ts)
-    reading.ts             rótulos de status e cálculo de progresso (espelho de web/src/lib/reading.ts)
+    reading.ts             rótulos/ordem de status e cálculo de progresso (espelho de
+                           web/src/lib/reading.ts)
     labels.ts               rótulos de recurso/ação pro cartão de confirmação do chat
   api/
     client.ts            fetch autenticado + o esquema de token acima
@@ -44,25 +49,40 @@ src/
   auth/AuthContext.tsx    estado de sessão (usuário, login, logout, boot)
   navigation/
     RootNavigator.tsx      abas: Finanças, Leitura, Academia, Assistente
-    FinanceStack.tsx         Finanças → nova movimentação
-    ReadingStack.tsx         Leitura → detalhe do livro, novo livro
-    GymStack.tsx              Academia → treino ativo → adicionar/criar exercício
+    FinanceStack.tsx         Finanças → movimentações, contas, renda/recorrências,
+                             categorias (cada uma com cadastro/edição)
+    ReadingStack.tsx         Leitura → detalhe do livro, novo livro, todos os livros
+    GymStack.tsx              Academia → treino ativo, biblioteca de exercícios,
+                              novo treino, novo/editar exercício
   screens/
     LoginScreen.tsx
     DashboardScreen.tsx   Visão geral de Finanças (saldo, receitas/despesas, renda
-                          comprometida, sobra do salário, vencimentos, insights)
+                          comprometida, sobra do salário, vencimentos, insights) +
+                          atalhos pras telas abaixo
     finance/
-      NewTransactionScreen.tsx registrar uma movimentação (despesa/receita)
+      NewTransactionScreen.tsx cria OU edita uma movimentação (apaga também)
+      TransactionsScreen.tsx    lista do mês, com navegação mês a mês
+      AccountsScreen.tsx + NewAccountScreen.tsx       contas/cartões
+      RecurringScreen.tsx + NewRecurringScreen.tsx    Minha renda + Recorrências
+                                                      (pausar/editar/apagar, desconto %)
+      CategoriesScreen.tsx + NewCategoryScreen.tsx    categorias (com subcategoria e cor)
     reading/
       ReadingScreen.tsx      estante (lendo agora / quero ler) + estatísticas
-      BookDetailScreen.tsx    progresso, registrar sessão de leitura, histórico
+      BookDetailScreen.tsx    progresso, status (chips), nota (estrelas), registrar
+                              sessão, histórico, excluir livro
       NewBookScreen.tsx        adicionar um livro à estante
+      AllBooksScreen.tsx       todos os livros, com filtro por status
     gym/
       WorkoutsScreen.tsx      treinos cadastrados, treino em andamento, treino livre
       ActiveWorkoutScreen.tsx registrar séries (musculação e cardio, com a lógica de
                               "sessão única" do app web), cronômetro, finalizar
       ExercisePickerScreen.tsx buscar e adicionar um exercício ao treino em andamento
-      NewExerciseScreen.tsx    cadastrar um exercício novo (nome, tipo, equipamento, músculos)
+      ExerciseLibraryScreen.tsx buscar/ver todos os exercícios cadastrados
+      NewExerciseScreen.tsx    cria OU edita um exercício (nome, tipo, equipamento,
+                               sessão única, músculos); apaga os que você mesmo criou
+      NewWorkoutScreen.tsx     cria um treino: nome, dias da semana, exercícios com
+                               meta (só o nível "ideal" por enquanto — o app web
+                               também deixa configurar mínimo/máximo)
     chat/
       ChatScreen.tsx          conversa com o assistente (envio síncrono, sem streaming —
                               ver nota abaixo) + cartão de aprovar/rejeitar ações pendentes
@@ -116,32 +136,51 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
 ## O que já tem
 
 - [x] Login/logout com sessão persistida (fecha o app e continua logado)
-- [x] Dashboard de Finanças: saldo, receitas/despesas do mês, renda comprometida,
-      quanto sobra do salário, próximos vencimentos, insights, **+ nova movimentação**
-- [x] Leitura: estante (lendo agora / quero ler) com progresso, estatísticas (sequência,
-      páginas no mês, lidos no ano), detalhe do livro com registro de sessão de leitura,
-      **+ novo livro**
-- [x] Academia: lista de treinos, "treino livre", treino ativo com registro de série
+- [x] Visual: ícones SVG finos (mesmo traço do app web, sem emoji de navegação/ação),
+      cantos arredondados no mesmo raio do app web, status bar respeitada em toda tela
+      sem header nativo (`useSafeAreaInsets`)
+- [x] **Finanças**: dashboard (saldo, receitas/despesas do mês, renda comprometida,
+      sobra do salário, vencimentos, insights) + nova/editar/apagar movimentação, lista
+      de movimentações por mês, contas/cartões (cadastro/edição/arquivar), Minha
+      renda/Recorrências (cadastro/edição/apagar, pausar, desconto %), categorias
+      (cadastro/edição/apagar, cor, subcategoria)
+- [x] **Leitura**: estante (lendo agora / quero ler) com progresso, estatísticas
+      (sequência, páginas no mês, lidos no ano), todos os livros com filtro por status,
+      detalhe do livro (progresso, status, nota em estrelas, registrar sessão, histórico,
+      excluir), **+ novo livro**
+- [x] **Academia**: lista de treinos, "treino livre", treino ativo com registro de série
       (musculação: carga/repetições, já pré-preenchida pela meta; cardio: minutos/km,
-      com a mesma lógica de "sessão única" x "várias séries" do app web), adicionar
-      exercício durante o treino, cronômetro, finalizar, **+ novo exercício**
-- [x] Assistente: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
-      confirmações antes de gravar algo) — ver a nota sobre streaming acima
+      com a mesma lógica de "sessão única" x "várias séries" do app web), cronômetro
+      isolado num componente próprio (não derruba a performance do resto da tela),
+      adicionar exercício durante o treino, finalizar, biblioteca de exercícios com
+      busca, **+ novo treino** (metas por exercício), **+ novo/editar/apagar exercício**
+- [x] **Assistente**: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
+      confirmações antes de gravar algo) — ver a nota sobre streaming acima; sempre
+      reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio
 
-## Próximos passos (nessa ordem, combinado com o usuário)
+## Bug conhecido, não resolvido (preciso de um APK de verdade pra confirmar)
 
-1. **Finanças**: lista de movimentações (ver/editar/apagar o que já foi lançado), Minha
-   renda/Recorrências, categorias
-2. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
-3. Os módulos menores (Estudos, Princípios, Kanban, Documentos) — ainda sem prioridade
+No preview web do Expo (`expo start --web`), trocar de **aba** (Finanças→Leitura, por
+exemplo) às vezes não troca o conteúdo da tela — a cor do ícone ativo muda (o estado do
+`Tab.Navigator` atualizou), mas a tela visível continua sendo a anterior. Testei bastante
+e tudo aponta pra ser um artefato específico de `@react-navigation/bottom-tabs` rodando
+em `react-native-web` (que troca de tela via CSS `display`, diferente do Android nativo,
+que troca de *view* no nível do sistema operacional) — mas **isso não foi confirmado num
+celular Android de verdade**. Testar isso especificamente no próximo APK gerado.
+
+## Próximos passos
+
+1. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
+   — nada disso existe no app mobile ainda
+2. Os módulos menores (Estudos, Princípios, Kanban, Documentos) — ainda sem prioridade
    definida
-
-Dentro de Academia e Leitura também ficou de fora (por enquanto): editar/apagar
-exercícios e treinos, montar um treino novo (só dá pra criar exercícios soltos, não um
-treino inteiro com metas por nível), biblioteca de exercícios com busca livre fora do
-treino, detalhes de cardio (calorias, frequência cardíaca...), fotos de capa, editar
-livro, recordes/histórico por exercício. No chat: múltiplas conversas (só usa uma) e os
-botões de resposta rápida/atalho que o app web mostra.
+3. **Login com Google** — combinado com o usuário, esperando ele criar o projeto no
+   Google Cloud Console e mandar as credenciais (client ID/secret web + Android)
+4. Fechar a lacuna de Academia: metas de treino com níveis mínimo/ideal/máximo (hoje o
+   app mobile só grava o nível "ideal" ao criar um treino novo)
+5. Chat: múltiplas conversas (hoje só usa uma) e os botões de resposta rápida/atalho que
+   o app web mostra
+6. Investigar o bug de troca de aba descrito acima num APK de verdade
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `RootNavigator` (provavelmente virando uma

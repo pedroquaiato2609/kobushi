@@ -53,7 +53,10 @@ export type IconName = keyof typeof PATHS;
 
 export function Icon({ name, size = 18, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    // pointerEvents="none": ícone é sempre decorativo — sem isso, no Android (e na web) o toque podia
+    // ser "engolido" pelo próprio SVG em vez de chegar no botão que o envolve (foi a causa real da
+    // navegação simplesmente não responder ao tocar bem em cima de um ícone, como os das abas).
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" pointerEvents="none">
       {PATHS[name]}
     </Svg>
   );
