@@ -158,15 +158,18 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       confirmações antes de gravar algo) — ver a nota sobre streaming acima; sempre
       reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio
 
-## Bug conhecido, não resolvido (preciso de um APK de verdade pra confirmar)
+## Bug corrigido: trocar de aba ficava "congelado" na tela anterior
 
-No preview web do Expo (`expo start --web`), trocar de **aba** (Finanças→Leitura, por
-exemplo) às vezes não troca o conteúdo da tela — a cor do ícone ativo muda (o estado do
-`Tab.Navigator` atualizou), mas a tela visível continua sendo a anterior. Testei bastante
-e tudo aponta pra ser um artefato específico de `@react-navigation/bottom-tabs` rodando
-em `react-native-web` (que troca de tela via CSS `display`, diferente do Android nativo,
-que troca de *view* no nível do sistema operacional) — mas **isso não foi confirmado num
-celular Android de verdade**. Testar isso especificamente no próximo APK gerado.
+O ícone ativo mudava de cor (o `Tab.Navigator` atualizava o estado certinho), mas o
+conteúdo visível continuava sendo o da aba anterior. Isso é um bug conhecido do
+`react-native-screens` — só acontece em **build de release** (por isso nunca apareceu
+rodando `expo start`/Expo Go, só no APK de verdade), onde o Fragment nativo da aba antiga
+às vezes não é removido ao trocar de aba, deixando duas telas sobrepostas
+([software-mansion/react-native-screens#4649](https://github.com/software-mansion/react-native-screens/issues/4649),
+sem correção oficial da biblioteca). A correção foi desligar
+`detachInactiveScreens` no `Tab.Navigator` (`src/navigation/RootNavigator.tsx`) — isso
+tira as abas do mecanismo nativo com bug e mantém as 4 montadas como Views normais o
+tempo todo (custo pequeno de memória, nada perceptível com só 4 abas).
 
 ## Próximos passos
 
@@ -180,7 +183,6 @@ celular Android de verdade**. Testar isso especificamente no próximo APK gerado
    app mobile só grava o nível "ideal" ao criar um treino novo)
 5. Chat: múltiplas conversas (hoje só usa uma) e os botões de resposta rápida/atalho que
    o app web mostra
-6. Investigar o bug de troca de aba descrito acima num APK de verdade
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `RootNavigator` (provavelmente virando uma
