@@ -1,10 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../api/client';
 import type { FinOverview, Upcoming } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { colors, radius, spacing } from '../theme';
 import { brl } from '../lib/money';
+import type { FinanceStackParamList } from '../navigation/FinanceStack';
+
+type Props = NativeStackScreenProps<FinanceStackParamList, 'Dashboard'>;
 
 const UPCOMING_KIND_LABEL: Record<Upcoming['kind'], string> = { bill: 'Conta', recurring: 'Recorrente', invoice: 'Fatura de cartão' };
 const dm = (date: string) => `${date.slice(8)}/${date.slice(5, 7)}`;
@@ -28,7 +32,7 @@ function ProgressBar({ pct, tone }: { pct: number; tone: 'ok' | 'risk' | 'exceed
   );
 }
 
-export function DashboardScreen() {
+export function DashboardScreen({ navigation }: Props) {
   const { user, logout } = useAuth();
   const overview = useQuery({ queryKey: ['fin-overview'], queryFn: () => api.get<FinOverview>('/finance/overview') });
 
@@ -63,7 +67,10 @@ export function DashboardScreen() {
           <Text style={styles.greeting}>Olá, {user?.name?.split(' ')[0]}</Text>
           <Text style={styles.greetingSub}>Visão geral das suas finanças</Text>
         </View>
-        <TouchableOpacity onPress={() => void logout()}><Text style={styles.logout}>Sair</Text></TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewTransaction')}><Text style={styles.newBtnText}>+ Nova</Text></TouchableOpacity>
+          <TouchableOpacity onPress={() => void logout()}><Text style={styles.logout}>Sair</Text></TouchableOpacity>
+        </View>
       </View>
 
       {d.hasDemo && (
@@ -133,7 +140,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
   greeting: { fontSize: 22, fontWeight: '800', color: colors.ink },
   greetingSub: { fontSize: 13, color: colors.inkSoft, marginTop: 2 },
-  logout: { color: colors.accent, fontWeight: '600', fontSize: 14, paddingTop: 4 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  newBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  logout: { color: colors.accent, fontWeight: '600', fontSize: 14 },
   demoBanner: { backgroundColor: '#fff4df', borderRadius: 10, padding: spacing.sm, borderWidth: 1, borderColor: '#f2d9ad' },
   demoText: { fontSize: 12, color: '#8a5a0a' },
   tilesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },

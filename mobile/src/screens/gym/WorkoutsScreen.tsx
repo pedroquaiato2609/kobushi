@@ -34,7 +34,10 @@ export function WorkoutsScreen({ navigation }: Props) {
       style={styles.screen} contentContainerStyle={styles.content}
       refreshControl={<RefreshControl refreshing={active.isFetching || workouts.isFetching} onRefresh={() => { void active.refetch(); void workouts.refetch(); }} tintColor={colors.accent} />}
     >
-      <Text style={styles.header}>Academia</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.header}>Academia</Text>
+        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewExercise')}><Text style={styles.newBtnText}>+ Exercício</Text></TouchableOpacity>
+      </View>
 
       {active.data && (
         <TouchableOpacity style={styles.activeCard} onPress={() => navigation.navigate('ActiveWorkout')}>
@@ -78,7 +81,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
   center: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
-  header: { fontSize: 24, fontWeight: '800', color: colors.ink, marginBottom: spacing.xs },
+  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  header: { fontSize: 24, fontWeight: '800', color: colors.ink },
+  newBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  newBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   activeCard: { backgroundColor: colors.accent, borderRadius: radius, padding: spacing.lg, gap: 4 },
   activeTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
   activeSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },

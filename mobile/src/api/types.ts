@@ -7,6 +7,8 @@ export interface FinAccount {
   creditLimitCents: number | null; closingDay: number | null; dueDay: number | null; invoiceRemindDays: number | null; source: 'manual' | 'import' | 'demo'; archived: boolean;
   balanceCents?: number; pendingCents?: number;
 }
+export interface FinCategory { id: string; name: string; parentId: string | null; kind: 'expense' | 'income'; color: string }
+export interface FinRefs { accounts: FinAccount[]; categories: FinCategory[] }
 export interface FinGoal { id: string; name: string; targetCents: number; currentCents: number; deadline: string | null; kanbanCardId: string | null; source?: string }
 export interface CategorySlice { categoryId: string | null; name: string; color: string; cents: number; children: { categoryId: string | null; name: string; cents: number }[] }
 export interface MonthSummary { month: string; incomeCents: number; expenseCents: number; netCents: number; pendingIncomeCents: number; pendingExpenseCents: number; byCategory: CategorySlice[] }
@@ -82,3 +84,16 @@ export interface GymPlanItem {
 }
 export interface GymActive extends GymSessionView { plan: GymPlanItem[] }
 export interface GymAddSetResult { set: GymSet; prs: ('weight' | 'e1rm')[]; e1rm: number }
+
+// ---- Assistente (chat) ------------------------------------------------------------------------
+export interface Conversation { id: string; title: string; createdAt: string; updatedAt: string }
+export interface ToolCall { id: string; name: string; args: Record<string, unknown> }
+export interface ChatMessage {
+  id: string; conversationId: string; role: 'user' | 'assistant' | 'tool' | 'note'; content: string;
+  toolCalls: ToolCall[] | null; toolCallId: string | null; toolName: string | null; createdAt: string;
+}
+export interface AgentAction {
+  id: string; conversationId: string | null; tool: string; resource: string; action: string;
+  args: Record<string, unknown>; result: unknown; status: 'pending' | 'executed' | 'denied' | 'rejected' | 'error';
+  summary?: string; createdAt: string; resolvedAt: string | null;
+}

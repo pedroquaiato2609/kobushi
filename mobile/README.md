@@ -37,27 +37,47 @@ src/
     dates.ts              data de hoje (ISO) e formatação dd/mm
     gym.ts                 rótulos de músculo/equipamento (espelho de web/src/lib/muscles.ts)
     reading.ts             rótulos de status e cálculo de progresso (espelho de web/src/lib/reading.ts)
+    labels.ts               rótulos de recurso/ação pro cartão de confirmação do chat
   api/
     client.ts            fetch autenticado + o esquema de token acima
     types.ts              tipos espelhados de web/src/api/types.ts (só o que já tem tela)
   auth/AuthContext.tsx    estado de sessão (usuário, login, logout, boot)
   navigation/
-    RootNavigator.tsx      abas: Finanças, Leitura, Academia
-    ReadingStack.tsx         Leitura → detalhe do livro
-    GymStack.tsx              Academia → treino ativo → adicionar exercício
+    RootNavigator.tsx      abas: Finanças, Leitura, Academia, Assistente
+    FinanceStack.tsx         Finanças → nova movimentação
+    ReadingStack.tsx         Leitura → detalhe do livro, novo livro
+    GymStack.tsx              Academia → treino ativo → adicionar/criar exercício
   screens/
     LoginScreen.tsx
     DashboardScreen.tsx   Visão geral de Finanças (saldo, receitas/despesas, renda
                           comprometida, sobra do salário, vencimentos, insights)
+    finance/
+      NewTransactionScreen.tsx registrar uma movimentação (despesa/receita)
     reading/
       ReadingScreen.tsx      estante (lendo agora / quero ler) + estatísticas
       BookDetailScreen.tsx    progresso, registrar sessão de leitura, histórico
+      NewBookScreen.tsx        adicionar um livro à estante
     gym/
       WorkoutsScreen.tsx      treinos cadastrados, treino em andamento, treino livre
       ActiveWorkoutScreen.tsx registrar séries (musculação e cardio, com a lógica de
                               "sessão única" do app web), cronômetro, finalizar
       ExercisePickerScreen.tsx buscar e adicionar um exercício ao treino em andamento
+      NewExerciseScreen.tsx    cadastrar um exercício novo (nome, tipo, equipamento, músculos)
+    chat/
+      ChatScreen.tsx          conversa com o assistente (envio síncrono, sem streaming —
+                              ver nota abaixo) + cartão de aprovar/rejeitar ações pendentes
 ```
+
+## O chat não usa streaming (por enquanto)
+
+O app web mostra a resposta do assistente "digitando" aos poucos via Server-Sent
+Events. O React Native não tem um jeito confiável e simples de ler uma resposta HTTP em
+pedaços (sem bibliotecas nativas extras), então o app mobile usa o endpoint síncrono
+(`POST /conversations/:id/messages`, sem `/stream`): a tela mostra "Pensando…" e a
+resposta inteira aparece de uma vez quando o turno termina. Funcionalmente é a mesma
+coisa (mesmas ferramentas, mesma confirmação de ações), só não tem o efeito de
+"digitando". Dá pra trocar pra streaming depois com `react-native-sse` ou similar, se
+fizer falta.
 
 ## Rodando em desenvolvimento
 
@@ -97,27 +117,31 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
 
 - [x] Login/logout com sessão persistida (fecha o app e continua logado)
 - [x] Dashboard de Finanças: saldo, receitas/despesas do mês, renda comprometida,
-      quanto sobra do salário, próximos vencimentos, insights
+      quanto sobra do salário, próximos vencimentos, insights, **+ nova movimentação**
 - [x] Leitura: estante (lendo agora / quero ler) com progresso, estatísticas (sequência,
-      páginas no mês, lidos no ano), detalhe do livro com registro de sessão de leitura
+      páginas no mês, lidos no ano), detalhe do livro com registro de sessão de leitura,
+      **+ novo livro**
 - [x] Academia: lista de treinos, "treino livre", treino ativo com registro de série
-      (musculação: carga/repetições; cardio: minutos/km, já com a mesma lógica de
-      "sessão única" x "várias séries" do app web), adicionar exercício durante o
-      treino, cronômetro, finalizar
+      (musculação: carga/repetições, já pré-preenchida pela meta; cardio: minutos/km,
+      com a mesma lógica de "sessão única" x "várias séries" do app web), adicionar
+      exercício durante o treino, cronômetro, finalizar, **+ novo exercício**
+- [x] Assistente: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
+      confirmações antes de gravar algo) — ver a nota sobre streaming acima
 
 ## Próximos passos (nessa ordem, combinado com o usuário)
 
-1. **Finanças**: lista de movimentações + criar movimentação, Minha renda/Recorrências,
-   categorias
+1. **Finanças**: lista de movimentações (ver/editar/apagar o que já foi lançado), Minha
+   renda/Recorrências, categorias
 2. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
-3. Os módulos menores (Estudos, Princípios, Kanban, Documentos, assistente por chat) —
-   ainda sem prioridade definida
+3. Os módulos menores (Estudos, Princípios, Kanban, Documentos) — ainda sem prioridade
+   definida
 
 Dentro de Academia e Leitura também ficou de fora (por enquanto): editar/apagar
-exercícios e treinos, biblioteca de exercícios com busca livre fora do treino,
-cadastrar um livro novo (só dá pra logar sessão de um livro que já existe), detalhes de
-cardio (calorias, frequência cardíaca...), fotos de capa, recordes/histórico por
-exercício.
+exercícios e treinos, montar um treino novo (só dá pra criar exercícios soltos, não um
+treino inteiro com metas por nível), biblioteca de exercícios com busca livre fora do
+treino, detalhes de cardio (calorias, frequência cardíaca...), fotos de capa, editar
+livro, recordes/histórico por exercício. No chat: múltiplas conversas (só usa uma) e os
+botões de resposta rápida/atalho que o app web mostra.
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `RootNavigator` (provavelmente virando uma
