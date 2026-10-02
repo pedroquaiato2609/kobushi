@@ -65,17 +65,21 @@ export function authRoutes(api: FastifyInstance, c: Container) {
     const ctx = await c.auth.authenticate(readCookie(req, COOKIE));
     return { needsSetup: await c.auth.needsSetup(), user: ctx?.user ?? null, reauthUntil: ctx?.session.reauthUntil ?? null };
   });
+  // apps nativos (sem cookie jar de navegador) mandam x-ninshiki-client: mobile e recebem o token também no corpo,
+  // pra guardar no armazenamento seguro do aparelho e reenviar como Cookie manualmente nas próximas chamadas.
+  // O navegador nunca manda esse cabeçalho, então o fluxo web continua idêntico (token só no cookie HttpOnly).
+  const isMobileClient = (req: FastifyRequest) => req.headers['x-ninshiki-client'] === 'mobile';
   api.post('/auth/setup', STRICT, async (req, reply) => {
     const b = z.object({ name: z.string().min(1).max(80), email: z.string().email().max(200), password: z.string().min(1).max(200) }).parse(req.body);
     const out = await c.auth.setup(b, metaOf(req));
     setSessionCookie(req, reply, out.token, out.maxAgeSeconds);
-    return { user: out.user };
+    return { user: out.user, ...(isMobileClient(req) ? { token: out.token } : {}) };
   });
   api.post('/auth/login', STRICT, async (req, reply) => {
     const b = z.object({ email: z.string().max(200), password: z.string().max(200) }).parse(req.body);
     const out = await c.auth.login(b.email, b.password, metaOf(req));
     setSessionCookie(req, reply, out.token, out.maxAgeSeconds);
-    return { user: out.user };
+    return { user: out.user, ...(isMobileClient(req) ? { token: out.token } : {}) };
   });
   api.post('/auth/logout', async (req, reply) => { await c.auth.logout(authOf(req), req.ip); clearSessionCookie(reply); return reply.code(204).send(); });
   api.get('/auth/sessions', async (req) => c.auth.listSessions(authOf(req)));

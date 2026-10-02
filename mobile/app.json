@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "Ninshiki",
+    "slug": "ninshiki",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "ninshiki",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#6a5cd6"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ninshiki.app"
+    },
+    "android": {
+      "package": "com.ninshiki.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#6a5cd6",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-secure-store"
+    ]
+  }
+}
