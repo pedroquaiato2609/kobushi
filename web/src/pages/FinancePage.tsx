@@ -27,7 +27,7 @@ const thisMonth = () => { const d = new Date(); return `${d.getFullYear()}-${Str
 
 type Modal =
   | { type: 'tx'; tx?: FinTransaction | null } | { type: 'account'; account?: FinAccount | null } | { type: 'pay'; card: FinAccount; cents: number }
-  | { type: 'budget' } | { type: 'goal'; goal: FinGoal | null } | { type: 'contribute'; goal: FinGoal } | { type: 'recurring'; rec: FinRecurring | null }
+  | { type: 'budget' } | { type: 'goal'; goal: FinGoal | null } | { type: 'contribute'; goal: FinGoal } | { type: 'recurring'; rec: FinRecurring | null; initialKind?: 'expense' | 'income' }
   | { type: 'category'; category: FinCategory | null };
 
 export default function FinancePage() {
@@ -87,7 +87,7 @@ export default function FinancePage() {
       case 'orcamentos':
         return <PlanningTab budgets={data.budgets} goals={data.goals} categories={categories} onBudget={() => setModal({ type: 'budget' })} onGoal={(goal) => setModal({ type: 'goal', goal })} onContribute={(goal) => setModal({ type: 'contribute', goal })} onCategory={(category) => setModal({ type: 'category', category })} />;
       case 'recorrentes':
-        return <RecurringTab items={recurring.data} loading={recurring.isLoading} error={recurring.error} onEdit={(rec) => setModal({ type: 'recurring', rec })} />;
+        return <RecurringTab items={recurring.data} loading={recurring.isLoading} error={recurring.error} onEdit={(rec, kind) => setModal({ type: 'recurring', rec, initialKind: kind })} />;
       case 'insights':
         return <InsightsTab insights={insights.data} loading={insights.isLoading} error={insights.error} />;
       default:
@@ -128,7 +128,7 @@ export default function FinancePage() {
       {modal?.type === 'budget' && <BudgetModal categories={categories} taken={(data?.budgets ?? []).map((b) => b.budget.categoryId)} onClose={close} />}
       {modal?.type === 'goal' && <GoalModal goal={modal.goal} onClose={close} />}
       {modal?.type === 'contribute' && <ContributeModal goal={modal.goal} onClose={close} />}
-      {modal?.type === 'recurring' && <RecurringModal rec={modal.rec} accounts={accounts} categories={categories} onClose={close} />}
+      {modal?.type === 'recurring' && <RecurringModal rec={modal.rec} accounts={accounts} categories={categories} initialKind={modal.initialKind} onClose={close} />}
       {modal?.type === 'category' && <CategoryModal category={modal.category} categories={categories} onClose={close} />}
     </PrivacyCtx.Provider>
   );

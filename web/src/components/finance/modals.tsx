@@ -309,12 +309,12 @@ export function ContributeModal({ goal, onClose }: { goal: FinGoal; onClose: () 
   );
 }
 
-export function RecurringModal({ rec, accounts, categories, onClose }: { rec?: FinRecurring | null; accounts: FinAccount[]; categories: FinCategory[]; onClose: () => void }) {
+export function RecurringModal({ rec, accounts, categories, initialKind, onClose }: { rec?: FinRecurring | null; accounts: FinAccount[]; categories: FinCategory[]; initialKind?: 'expense' | 'income'; onClose: () => void }) {
   const confirm = useConfirm();
   const usable = accounts.filter((a) => !a.archived);
   const [description, setDescription] = useState(rec?.description ?? '');
   const [amount, setAmount] = useState(centsToInput(rec?.amountCents));
-  const [kind, setKind] = useState<'expense' | 'income'>(rec?.kind ?? 'expense');
+  const [kind, setKind] = useState<'expense' | 'income'>(rec?.kind ?? initialKind ?? 'expense');
   const [frequency, setFrequency] = useState<FinRecurring['frequency']>(rec?.frequency ?? 'monthly');
   const [nextDue, setNextDue] = useState(rec?.nextDue ?? localToday());
   const [accountId, setAccountId] = useState(rec?.accountId ?? usable[0]?.id ?? '');
@@ -327,22 +327,25 @@ export function RecurringModal({ rec, accounts, categories, onClose }: { rec?: F
   const del = useAction(() => api.del(`/finance/recurring/${rec?.id}`), onClose);
   const discountNum = discount.trim() === '' ? 0 : Number(discount.replace(',', '.'));
   const netCents = (() => { const c = parseMoney(amount); return c && discountNum > 0 ? Math.round(c * (1 - discountNum / 100)) : null; })();
+  const isIncome = kind === 'income';
   return (
-    <Modal title={rec ? 'Editar recorrência' : 'Nova recorrência ou assinatura'} onClose={onClose}
-      onSubmit={() => { const c = parseMoney(amount); if (!c || c <= 0) return setErr(new Error('Informe um valor maior que zero.')); if (!accountId) return setErr(new Error('Escolha uma conta.')); if (discountNum < 0 || discountNum > 100) return setErr(new Error('O desconto precisa ficar entre 0% e 100%.')); setErr(null); save.mutate({ description, amountCents: c, kind, frequency, nextDue, accountId, categoryId: categoryId || null, isSubscription: sub, discountPct: discountNum > 0 ? discountNum : null, remindDaysBefore: remind === '' ? null : Number(remind) }); }}
-      footer={<Footer busy={save.isPending} onDelete={rec ? async () => { if (await confirm('Excluir esta recorrência?')) del.mutate(undefined); } : undefined} />}>
-      <Field label="Descrição"><input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Ex.: Internet" required autoFocus /></Field>
+    <Modal title={rec ? (isIncome ? 'Editar renda' : 'Editar recorrência') : (isIncome ? 'Nova renda' : 'Nova recorrência ou assinatura')} onClose={onClose}
+      onSubmit={() => { const c = parseMoney(amount); if (!c || c <= 0) return setErr(new Error('Informe um valor maior que zero.')); if (!accountId) return setErr(new Error('Escolha uma conta.')); if (discountNum < 0 || discountNum > 100) return setErr(new Error('O desconto precisa ficar entre 0% e 100%.')); setErr(null); save.mutate({ description, amountCents: c, kind, frequency, nextDue, accountId, categoryId: categoryId || null, isSubscription: isIncome ? false : sub, discountPct: !isIncome && discountNum > 0 ? discountNum : null, remindDaysBefore: remind === '' ? null : Number(remind) }); }}
+      footer={<Footer busy={save.isPending} onDelete={rec ? async () => { if (await confirm(`Excluir ${isIncome ? 'esta renda' : 'esta recorrência'}?`)) del.mutate(undefined); } : undefined} />}>
+      <Field label="Descrição"><input value={description} onChange={(e) => setDescription(e.target.value)} placeholder={isIncome ? 'Ex.: Salário' : 'Ex.: Internet'} required autoFocus /></Field>
       <div className="form-row">
-        <Field label="Valor de tabela (R$)"><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
+        <Field label={isIncome ? 'Valor (R$)' : 'Valor de tabela (R$)'}><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} /></Field>
         <Field label="Tipo"><select value={kind} onChange={(e) => setKind(e.target.value as 'expense' | 'income')}><option value="expense">Despesa</option><option value="income">Receita</option></select></Field>
       </div>
-      <Field label="Desconto (%) — opcional">
-        <input inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ex.: 10" />
-        {netCents !== null && <small className="hint">Com desconto: <b>{brl(netCents)}</b> por {FREQ_LABEL[frequency]}.</small>}
-      </Field>
+      {!isIncome && (
+        <Field label="Desconto (%) — opcional">
+          <input inputMode="decimal" value={discount} onChange={(e) => setDiscount(e.target.value.replace(/[^0-9.,]/g, ''))} placeholder="Ex.: 10" />
+          {netCents !== null && <small className="hint">Com desconto: <b>{brl(netCents)}</b> por {FREQ_LABEL[frequency]}.</small>}
+        </Field>
+      )}
       <div className="form-row">
         <Field label="Repete"><select value={frequency} onChange={(e) => setFrequency(e.target.value as FinRecurring['frequency'])}><option value="monthly">Todo mês</option><option value="weekly">Toda semana</option><option value="yearly">Todo ano</option></select></Field>
-        <Field label="Próximo vencimento"><input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} required /></Field>
+        <Field label={isIncome ? 'Próximo recebimento' : 'Próximo vencimento'}><input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} required /></Field>
       </div>
       <div className="form-row">
         <Field label="Conta / cartão"><select value={accountId} onChange={(e) => setAccountId(e.target.value)}>{usable.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}</select></Field>
@@ -350,7 +353,7 @@ export function RecurringModal({ rec, accounts, categories, onClose }: { rec?: F
       </div>
       <div className="form-row">
         <Field label="Avisar (dias antes)"><input type="number" min={0} max={30} value={remind} onChange={(e) => setRemind(e.target.value)} /></Field>
-        <label className="check-line"><input type="checkbox" checked={sub} onChange={(e) => setSub(e.target.checked)} /> É uma assinatura</label>
+        {!isIncome && <label className="check-line"><input type="checkbox" checked={sub} onChange={(e) => setSub(e.target.checked)} /> É uma assinatura</label>}
       </div>
       <ErrorText error={err ?? save.error ?? del.error} />
     </Modal>
