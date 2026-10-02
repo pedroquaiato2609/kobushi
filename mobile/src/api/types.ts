@@ -23,3 +23,62 @@ export interface FinOverview {
   upcoming: Upcoming[]; budgets: BudgetStatus[]; goals: FinGoal[]; insights: Insight[]; insightCount: number;
   commitment: { incomeCents: number; fixedCents: number; invoicesCents: number; committedCents: number; pct: number; basis: 'salary' | 'average' };
 }
+
+// ---- Leitura --------------------------------------------------------------------------------
+export type BookStatus = 'quero_ler' | 'lendo' | 'pausado' | 'lido' | 'abandonado';
+export interface Book {
+  id: string; title: string; author: string; isbn: string | null; coverUrl: string | null; publisher: string;
+  format: string; status: BookStatus; totalPages: number | null; currentPage: number; rating: number | null;
+  notes: string; startedAt: string | null; finishedAt: string | null;
+}
+export interface ReadingSession { id: string; bookId: string; date: string; pages: number | null; minutes: number | null; note: string }
+export interface BookOverview extends Book { pagesPerDay: number; daysToFinish: number | null; recentSessions: ReadingSession[] }
+export interface ReadingOverview {
+  reading: Book[]; wantToRead: Book[]; finishedThisYear: number; pagesThisMonth: number; minutesThisMonth: number;
+  streak: number; totalBooks: number;
+}
+
+// ---- Academia ---------------------------------------------------------------------------------
+export type Level = 'min' | 'ideal' | 'max';
+export const MUSCLES = [
+  'pectoral_major', 'deltoid_anterior', 'deltoid_lateral', 'deltoid_posterior', 'trapezius', 'latissimus_dorsi',
+  'rhomboids', 'teres_major', 'rotator_cuff', 'erector_spinae', 'biceps_brachii', 'triceps_brachii', 'brachialis',
+  'brachioradialis', 'wrist_flexors', 'wrist_extensors', 'rectus_abdominis', 'obliques', 'transverse_abdominis',
+  'serratus_anterior', 'gluteus_maximus', 'gluteus_medius', 'hip_adductors', 'hip_flexors', 'quadriceps',
+  'hamstrings', 'gastrocnemius', 'soleus',
+] as const;
+export type Muscle = (typeof MUSCLES)[number];
+export type GymEquipment =
+  | 'barbell' | 'dumbbell' | 'machine' | 'cable' | 'bodyweight' | 'kettlebell' | 'other'
+  | 'treadmill' | 'bike' | 'stairs' | 'rowing_machine' | 'elliptical' | 'jump_rope' | 'pool';
+export type GymExerciseKind = 'strength' | 'cardio';
+export interface GymExercise {
+  id: string; name: string; primaryMuscles: Muscle[]; secondaryMuscles: Muscle[]; stabilizerMuscles: Muscle[]; equipment: GymEquipment;
+  kind: GymExerciseKind; singleSession: boolean; instructions: string; tips: string; isCustom: boolean; imageMime: string | null; archived: boolean;
+}
+export interface GymLevelTarget { sets: number; reps: number; weight: number }
+export interface GymCardioTarget { durationMin: number | null; distanceKm: number | null; speedKmh: number | null }
+export type GymTargets = Partial<Record<Level, GymLevelTarget>>;
+export type GymCardioTargets = Partial<Record<Level, GymCardioTarget>>;
+export interface GymWorkoutItem { id: string; exerciseId: string; position: number; restSeconds: number; note: string; targets: GymTargets }
+export interface GymWorkout { id: string; name: string; notes: string; weekdays: number[]; archived: boolean; items: GymWorkoutItem[] }
+export interface GymSession { id: string; workoutId: string | null; name: string; startedAt: string; endedAt: string | null; note: string; level: Level | null }
+export interface GymCardioSetDetails {
+  caloriesKcal: number | null; avgSpeedKmh: number | null; maxSpeedKmh: number | null;
+  avgPaceMinKm: number | null; maxPaceMinKm: number | null; avgHeartRate: number | null; maxHeartRate: number | null;
+}
+export interface GymSet extends GymCardioSetDetails {
+  id: string; sessionId: string; exerciseId: string; setNumber: number; reps: number; weight: number;
+  durationSeconds: number | null; distanceKm: number | null;
+  level: Level | null; restSeconds: number | null; isPr: boolean; createdAt: string;
+}
+export interface GymSessionView {
+  session: GymSession; durationSeconds: number; totalSets: number; volume: number; prs: number;
+  exercises: { exercise: GymExercise; sets: GymSet[]; levelReached: Level | null }[]; suggestedLevel: Level | null;
+}
+export interface GymPlanItem {
+  exercise: GymExercise; restSeconds: number; note: string; targets: GymTargets; planned: boolean;
+  last: { reps: number; weight: number }[]; best: { weight: number; e1rm: number }; sets: GymSet[]; levelReached: Level | null;
+}
+export interface GymActive extends GymSessionView { plan: GymPlanItem[] }
+export interface GymAddSetResult { set: GymSet; prs: ('weight' | 'e1rm')[]; e1rm: number }

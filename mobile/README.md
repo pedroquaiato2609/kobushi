@@ -32,16 +32,31 @@ Essa ponte fica toda em `src/api/client.ts`.
 src/
   config.ts            URL base da API (EXPO_PUBLIC_API_URL ou produção por padrão)
   theme.ts              paleta de cores (espelho de web/src/styles.css, modo claro)
-  lib/money.ts           formatação de dinheiro (espelho de web/src/lib/money.ts)
+  lib/
+    money.ts             formatação de dinheiro (espelho de web/src/lib/money.ts)
+    dates.ts              data de hoje (ISO) e formatação dd/mm
+    gym.ts                 rótulos de músculo/equipamento (espelho de web/src/lib/muscles.ts)
+    reading.ts             rótulos de status e cálculo de progresso (espelho de web/src/lib/reading.ts)
   api/
     client.ts            fetch autenticado + o esquema de token acima
     types.ts              tipos espelhados de web/src/api/types.ts (só o que já tem tela)
   auth/AuthContext.tsx    estado de sessão (usuário, login, logout, boot)
-  navigation/RootNavigator.tsx
+  navigation/
+    RootNavigator.tsx      abas: Finanças, Leitura, Academia
+    ReadingStack.tsx         Leitura → detalhe do livro
+    GymStack.tsx              Academia → treino ativo → adicionar exercício
   screens/
     LoginScreen.tsx
     DashboardScreen.tsx   Visão geral de Finanças (saldo, receitas/despesas, renda
                           comprometida, sobra do salário, vencimentos, insights)
+    reading/
+      ReadingScreen.tsx      estante (lendo agora / quero ler) + estatísticas
+      BookDetailScreen.tsx    progresso, registrar sessão de leitura, histórico
+    gym/
+      WorkoutsScreen.tsx      treinos cadastrados, treino em andamento, treino livre
+      ActiveWorkoutScreen.tsx registrar séries (musculação e cardio, com a lógica de
+                              "sessão única" do app web), cronômetro, finalizar
+      ExercisePickerScreen.tsx buscar e adicionar um exercício ao treino em andamento
 ```
 
 ## Rodando em desenvolvimento
@@ -83,16 +98,26 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
 - [x] Login/logout com sessão persistida (fecha o app e continua logado)
 - [x] Dashboard de Finanças: saldo, receitas/despesas do mês, renda comprometida,
       quanto sobra do salário, próximos vencimentos, insights
+- [x] Leitura: estante (lendo agora / quero ler) com progresso, estatísticas (sequência,
+      páginas no mês, lidos no ano), detalhe do livro com registro de sessão de leitura
+- [x] Academia: lista de treinos, "treino livre", treino ativo com registro de série
+      (musculação: carga/repetições; cardio: minutos/km, já com a mesma lógica de
+      "sessão única" x "várias séries" do app web), adicionar exercício durante o
+      treino, cronômetro, finalizar
 
 ## Próximos passos (nessa ordem, combinado com o usuário)
 
 1. **Finanças**: lista de movimentações + criar movimentação, Minha renda/Recorrências,
    categorias
-2. **Academia**: treinos, biblioteca de exercícios, treino ativo (séries, cronômetro
-   de descanso)
-3. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
-4. Os módulos menores (Leitura, Estudos, Princípios, Kanban, Documentos, assistente por
-   chat) — ainda sem prioridade definida
+2. **Agenda/Atividades**: calendário, atividades recorrentes, lembretes, deslocamentos
+3. Os módulos menores (Estudos, Princípios, Kanban, Documentos, assistente por chat) —
+   ainda sem prioridade definida
+
+Dentro de Academia e Leitura também ficou de fora (por enquanto): editar/apagar
+exercícios e treinos, biblioteca de exercícios com busca livre fora do treino,
+cadastrar um livro novo (só dá pra logar sessão de um livro que já existe), detalhes de
+cardio (calorias, frequência cardíaca...), fotos de capa, recordes/histórico por
+exercício.
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `RootNavigator` (provavelmente virando uma
