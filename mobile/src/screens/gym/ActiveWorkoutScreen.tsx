@@ -1,23 +1,26 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { GymActive, GymExercise, GymPlanItem } from '../../api/types';
+import { Icon } from '../../components/Icon';
 import { estimate1rm, EQUIPMENT_LABEL, fmtClock, fmtKg, MUSCLE_LABEL } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
 
 type Props = NativeStackScreenProps<GymStackParamList, 'ActiveWorkout'>;
 
-function useNow(enabled: boolean) {
+// Cronômetro isolado: o tick de 1s em 1s fica só aqui, não no componente de cima — senão a tela
+// inteira (todos os cards de exercício, inputs em edição etc.) re-renderizaria a cada segundo.
+function ElapsedClock({ startedAt, totalSets, prs }: { startedAt: string; totalSets: number; prs: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!enabled) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, [enabled]);
-  return now;
+  }, []);
+  const elapsed = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000));
+  return <Text style={styles.topBarStats}>{fmtClock(elapsed)} · {totalSets} série(s){prs > 0 ? ` · 🏆 ${prs}` : ''}</Text>;
 }
 
 const toNum = (s: string) => { const n = Number(s.replace(',', '.')); return Number.isFinite(n) ? n : NaN; };
@@ -128,7 +131,7 @@ function CardioSets({ item, sessionId, onLogged }: { item: GymPlanItem; sessionI
   );
 }
 
-function ExerciseCard({ item, sessionId, onLogged, onRemoveExtra }: { item: GymPlanItem; sessionId: string; onLogged: () => void; onRemoveExtra?: () => void }) {
+const ExerciseCard = memo(function ExerciseCard({ item, sessionId, onLogged, onRemoveExtra }: { item: GymPlanItem; sessionId: string; onLogged: () => void; onRemoveExtra?: () => void }) {
   const cardio = item.exercise.kind === 'cardio';
   const singleSession = cardio && item.exercise.singleSession;
   const done = singleSession && item.sets.length >= 1;
@@ -140,12 +143,14 @@ function ExerciseCard({ item, sessionId, onLogged, onRemoveExtra }: { item: GymP
           <Text style={styles.cardSub}>{item.exercise.primaryMuscles.map((m) => MUSCLE_LABEL[m]).join(', ')} · {EQUIPMENT_LABEL[item.exercise.equipment]}</Text>
         </View>
         {singleSession ? (
-          <Text style={[styles.countBadge, done && styles.countBadgeDone]}>{done ? '✓ feito' : '— pendente'}</Text>
+          done
+            ? <View style={styles.doneRow}><Icon name="check" size={13} color={colors.ideal} /><Text style={styles.countBadgeDone}>feito</Text></View>
+            : <Text style={styles.countBadge}>pendente</Text>
         ) : (
           <Text style={styles.countBadge}>{item.sets.length} série(s)</Text>
         )}
         {onRemoveExtra && item.sets.length === 0 && (
-          <TouchableOpacity onPress={onRemoveExtra} style={styles.removeBtn}><Text style={styles.removeBtnText}>✕</Text></TouchableOpacity>
+          <TouchableOpacity onPress={onRemoveExtra} style={styles.removeBtn}><Icon name="x" size={14} color={colors.inkSoft} /></TouchableOpacity>
         )}
       </View>
       {cardio
@@ -153,14 +158,13 @@ function ExerciseCard({ item, sessionId, onLogged, onRemoveExtra }: { item: GymP
         : <StrengthSets item={item} sessionId={sessionId} onLogged={onLogged} />}
     </View>
   );
-}
+});
 
 export function ActiveWorkoutScreen({ navigation }: Props) {
   const qc = useQueryClient();
   const active = useQuery({ queryKey: ['gym-active'], queryFn: () => api.get<GymActive | null>('/gym/sessions/active'), refetchInterval: false });
   const [extras, setExtras] = useState<GymExercise[]>([]);
   const [finishing, setFinishing] = useState(false);
-  const now = useNow(!!active.data);
 
   if (active.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
   if (!active.data) {
@@ -178,9 +182,8 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
     exercise: e, restSeconds: 90, note: '', targets: {}, planned: false, last: [], best: { weight: 0, e1rm: 0 }, sets: [], levelReached: null,
   }));
   const items = [...d.plan, ...extraItems];
-  const elapsed = Math.max(0, Math.floor((now - new Date(d.session.startedAt).getTime()) / 1000));
 
-  const onLogged = () => { void qc.invalidateQueries({ queryKey: ['gym-active'] }); };
+  const onLogged = useCallback(() => { void qc.invalidateQueries({ queryKey: ['gym-active'] }); }, [qc]);
 
   async function finish() {
     setFinishing(true);
@@ -196,7 +199,7 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
       <View style={styles.topBar}>
         <View>
           <Text style={styles.topBarName}>{d.session.name}</Text>
-          <Text style={styles.topBarStats}>{fmtClock(elapsed)} · {d.totalSets} série(s){d.prs > 0 ? ` · 🏆 ${d.prs}` : ''}</Text>
+          <ElapsedClock startedAt={d.session.startedAt} totalSets={d.totalSets} prs={d.prs} />
         </View>
         <TouchableOpacity style={styles.finishBtn} disabled={finishing} onPress={() => Alert.alert('Finalizar treino?', undefined, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Finalizar', onPress: () => void finish() }])}>
           {finishing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.finishBtnText}>Finalizar</Text>}
@@ -215,7 +218,7 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
           style={styles.addBtn}
           onPress={() => navigation.navigate('ExercisePicker', { exclude: items.map((i) => i.exercise.id), onPick: (e) => setExtras((l) => [...l, e]) })}
         >
-          <Text style={styles.addBtnText}>+ Adicionar exercício</Text>
+          <Icon name="plus" size={15} color={colors.accent} /><Text style={styles.addBtnText}>Adicionar exercício</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
@@ -228,7 +231,7 @@ const styles = StyleSheet.create({
   backBtn: { backgroundColor: colors.accent, borderRadius: 10, paddingVertical: 10, paddingHorizontal: spacing.lg },
   backBtnText: { color: '#fff', fontWeight: '700' },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: spacing.lg, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line },
-  topBarName: { fontSize: 16, fontWeight: '800', color: colors.ink },
+  topBarName: { fontSize: 16, fontWeight: '700', color: colors.ink },
   topBarStats: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   finishBtn: { backgroundColor: colors.accent, borderRadius: 10, paddingVertical: 10, paddingHorizontal: spacing.lg },
   finishBtnText: { color: '#fff', fontWeight: '700' },
@@ -239,9 +242,9 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: '700', color: colors.ink },
   cardSub: { fontSize: 12, color: colors.inkSoft, marginTop: 2 },
   countBadge: { fontSize: 11, color: colors.inkSoft, fontWeight: '700' },
-  countBadgeDone: { color: colors.ideal },
+  doneRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  countBadgeDone: { fontSize: 11, color: colors.ideal, fontWeight: '700' },
   removeBtn: { padding: 4 },
-  removeBtnText: { color: colors.inkSoft, fontSize: 14 },
   setList: { gap: 4 },
   setRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: colors.line },
   setN: { fontSize: 11, color: colors.inkSoft, width: 16 },
@@ -255,6 +258,6 @@ const styles = StyleSheet.create({
   logBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 10, paddingHorizontal: spacing.sm, minWidth: 100, alignItems: 'center' },
   logBtnDisabled: { opacity: 0.7 },
   logBtnText: { color: '#fff', fontWeight: '700', fontSize: 12, textAlign: 'center' },
-  addBtn: { borderWidth: 1, borderColor: colors.accent, borderRadius: radius, padding: spacing.md, alignItems: 'center' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.accent, borderRadius: radius, padding: spacing.md },
   addBtnText: { color: colors.accent, fontWeight: '700' },
 });

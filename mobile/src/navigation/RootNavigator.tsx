@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { ActivityIndicator, Text, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
+import { Icon, type IconName } from '../components/Icon';
 import { useAuth } from '../auth/AuthContext';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ChatScreen } from '../screens/chat/ChatScreen';
@@ -14,7 +15,7 @@ import { ReadingStack } from './ReadingStack';
 export type RootTabParamList = { Financas: undefined; Leitura: undefined; Academia: undefined; Assistente: undefined };
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
-const TAB_ICON: Record<keyof RootTabParamList, string> = { Financas: '💰', Leitura: '📚', Academia: '🏋️', Assistente: '💬' };
+const TAB_ICON: Record<keyof RootTabParamList, IconName> = { Financas: 'wallet', Leitura: 'book', Academia: 'dumbbell', Assistente: 'sparkles' };
 const TAB_LABEL: Record<keyof RootTabParamList, string> = { Financas: 'Finanças', Leitura: 'Leitura', Academia: 'Academia', Assistente: 'Assistente' };
 
 function AppTabs() {
@@ -25,7 +26,7 @@ function AppTabs() {
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.inkSoft,
         tabBarStyle: { backgroundColor: colors.surface, borderTopColor: colors.line },
-        tabBarIcon: () => <Text style={{ fontSize: 20 }}>{TAB_ICON[route.name]}</Text>,
+        tabBarIcon: ({ color, size }) => <Icon name={TAB_ICON[route.name]} size={size} color={color} />,
         tabBarLabel: TAB_LABEL[route.name],
       })}
     >

@@ -38,7 +38,7 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper, justifyContent: 'center', padding: spacing.lg },
   card: { backgroundColor: colors.surface, borderRadius: radius, padding: spacing.xl, gap: spacing.sm, borderWidth: 1, borderColor: colors.line },
-  logo: { fontSize: 28, fontWeight: '800', color: colors.ink, textAlign: 'center' },
+  logo: { fontSize: 28, fontWeight: '700', color: colors.ink, textAlign: 'center' },
   subtitle: { fontSize: 13, color: colors.inkSoft, textAlign: 'center', marginBottom: spacing.md },
   label: { fontSize: 13, color: colors.inkSoft, marginTop: spacing.sm },
   input: {

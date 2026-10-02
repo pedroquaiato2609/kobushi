@@ -119,7 +119,7 @@ export function ChatScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { fontSize: 22, fontWeight: '800', color: colors.ink, padding: spacing.lg, paddingBottom: spacing.sm },
+  header: { fontSize: 22, fontWeight: '700', color: colors.ink, padding: spacing.lg, paddingBottom: spacing.sm },
   list: { paddingHorizontal: spacing.lg, paddingBottom: spacing.md, gap: spacing.sm },
   empty: { fontSize: 13, color: colors.inkSoft, textAlign: 'center', marginTop: spacing.xl },
   note: { fontSize: 12, color: colors.inkSoft, fontStyle: 'italic', textAlign: 'center' },

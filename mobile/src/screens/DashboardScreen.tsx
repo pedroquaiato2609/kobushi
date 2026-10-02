@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../api/client';
 import type { FinOverview, Upcoming } from '../api/types';
+import { Icon } from '../components/Icon';
 import { useAuth } from '../auth/AuthContext';
 import { colors, radius, spacing } from '../theme';
 import { brl } from '../lib/money';
@@ -68,7 +69,9 @@ export function DashboardScreen({ navigation }: Props) {
           <Text style={styles.greetingSub}>Visão geral das suas finanças</Text>
         </View>
         <View style={styles.headerActions}>
-          <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewTransaction')}><Text style={styles.newBtnText}>+ Nova</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewTransaction')}>
+            <Icon name="plus" size={13} color="#fff" /><Text style={styles.newBtnText}>Nova</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => void logout()}><Text style={styles.logout}>Sair</Text></TouchableOpacity>
         </View>
       </View>
@@ -138,10 +141,10 @@ const styles = StyleSheet.create({
   retryBtn: { marginTop: spacing.sm, backgroundColor: colors.accent, paddingVertical: 10, paddingHorizontal: spacing.lg, borderRadius: 10 },
   retryText: { color: '#fff', fontWeight: '700' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  greeting: { fontSize: 22, fontWeight: '800', color: colors.ink },
+  greeting: { fontSize: 22, fontWeight: '700', color: colors.ink },
   greetingSub: { fontSize: 13, color: colors.inkSoft, marginTop: 2 },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  newBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   logout: { color: colors.accent, fontWeight: '600', fontSize: 14 },
   demoBanner: { backgroundColor: '#fff4df', borderRadius: 10, padding: spacing.sm, borderWidth: 1, borderColor: '#f2d9ad' },
@@ -151,12 +154,12 @@ const styles = StyleSheet.create({
   tileGood: { borderLeftColor: colors.ideal },
   tileBad: { borderLeftColor: colors.danger },
   tileLabel: { fontSize: 11, color: colors.inkSoft, textTransform: 'uppercase', letterSpacing: 0.3 },
-  tileValue: { fontSize: 20, fontWeight: '800', color: colors.ink },
+  tileValue: { fontSize: 20, fontWeight: '700', color: colors.ink },
   tileSub: { fontSize: 11, color: colors.inkSoft },
   panel: { backgroundColor: colors.surface, borderRadius: radius, padding: spacing.lg, borderWidth: 1, borderColor: colors.line, gap: spacing.xs },
   panelTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, marginBottom: 4 },
   panelNote: { fontSize: 12, color: colors.inkSoft },
-  leftoverValue: { fontSize: 26, fontWeight: '800' },
+  leftoverValue: { fontSize: 26, fontWeight: '700' },
   barTrack: { height: 8, borderRadius: 999, backgroundColor: colors.sunken, overflow: 'hidden', marginTop: spacing.sm },
   barFill: { height: '100%', borderRadius: 999 },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.line },

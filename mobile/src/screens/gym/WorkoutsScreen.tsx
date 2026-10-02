@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { GymActive, GymWorkout } from '../../api/types';
+import { Icon } from '../../components/Icon';
 import { WEEKDAYS } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
@@ -36,21 +37,23 @@ export function WorkoutsScreen({ navigation }: Props) {
     >
       <View style={styles.headerRow}>
         <Text style={styles.header}>Academia</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewExercise')}><Text style={styles.newBtnText}>+ Exercício</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewExercise')}>
+          <Icon name="plus" size={13} color="#fff" /><Text style={styles.newBtnText}>Exercício</Text>
+        </TouchableOpacity>
       </View>
 
       {active.data && (
         <TouchableOpacity style={styles.activeCard} onPress={() => navigation.navigate('ActiveWorkout')}>
           <Text style={styles.activeTitle}>Treino em andamento</Text>
           <Text style={styles.activeSub}>{active.data.session.name} · {active.data.totalSets} série(s)</Text>
-          <Text style={styles.activeCta}>Continuar →</Text>
+          <View style={styles.activeCtaRow}><Text style={styles.activeCta}>Continuar</Text><Icon name="right" size={14} color="#fff" /></View>
         </TouchableOpacity>
       )}
 
       {!active.data && (
         <>
           <TouchableOpacity style={styles.freeBtn} disabled={starting !== null} onPress={() => void start()}>
-            {starting === 'free' ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.freeBtnText}>+ Começar treino livre</Text>}
+            {starting === 'free' ? <ActivityIndicator color={colors.accent} /> : <View style={styles.freeBtnRow}><Icon name="plus" size={15} color={colors.accent} /><Text style={styles.freeBtnText}>Começar treino livre</Text></View>}
           </TouchableOpacity>
 
           <Text style={styles.sectionTitle}>Seus treinos</Text>
@@ -82,14 +85,16 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
   center: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
-  header: { fontSize: 24, fontWeight: '800', color: colors.ink },
-  newBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  header: { fontSize: 24, fontWeight: '700', color: colors.ink },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   activeCard: { backgroundColor: colors.accent, borderRadius: radius, padding: spacing.lg, gap: 4 },
-  activeTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  activeTitle: { color: '#fff', fontWeight: '700', fontSize: 16 },
   activeSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13 },
-  activeCta: { color: '#fff', fontWeight: '700', fontSize: 13, marginTop: spacing.xs },
+  activeCtaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: spacing.xs },
+  activeCta: { color: '#fff', fontWeight: '700', fontSize: 13 },
   freeBtn: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.accent, borderRadius: radius, padding: spacing.md, alignItems: 'center' },
+  freeBtnRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   freeBtnText: { color: colors.accent, fontWeight: '700', fontSize: 15 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, marginTop: spacing.sm },
   empty: { fontSize: 13, color: colors.inkSoft },

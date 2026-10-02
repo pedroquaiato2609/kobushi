@@ -5,5 +5,5 @@ export const colors = {
   accent: '#6a5cd6', accent2: '#3f6fe0', accentTint: 'rgba(106, 92, 214, 0.12)',
   danger: '#cf3562', min: '#ad7208', ideal: '#1a8f63', max: '#2f63cf',
 };
-export const radius = 14;
+export const radius = 18; // igual --radius do app web
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };

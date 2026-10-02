@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { Book, ReadingOverview } from '../../api/types';
+import { Icon } from '../../components/Icon';
 import { progressPct } from '../../lib/reading';
 import { colors, radius, spacing } from '../../theme';
 import type { ReadingStackParamList } from '../../navigation/ReadingStack';
@@ -48,7 +49,9 @@ export function ReadingScreen({ navigation }: Props) {
     >
       <View style={styles.headerRow}>
         <Text style={styles.header}>Leitura</Text>
-        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewBook')}><Text style={styles.newBtnText}>+ Novo livro</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.newBtn} onPress={() => navigation.navigate('NewBook')}>
+          <Icon name="plus" size={13} color="#fff" /><Text style={styles.newBtnText}>Novo livro</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.statsRow}>
@@ -82,12 +85,12 @@ const styles = StyleSheet.create({
   retryBtn: { marginTop: spacing.sm, backgroundColor: colors.accent, paddingVertical: 10, paddingHorizontal: spacing.lg, borderRadius: 10 },
   retryText: { color: '#fff', fontWeight: '700' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
-  header: { fontSize: 24, fontWeight: '800', color: colors.ink },
-  newBtn: { backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
+  header: { fontSize: 24, fontWeight: '700', color: colors.ink },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },
   newBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   statsRow: { flexDirection: 'row', gap: spacing.sm },
   statBox: { flex: 1, backgroundColor: colors.surface, borderRadius: radius, padding: spacing.md, alignItems: 'center', borderWidth: 1, borderColor: colors.line },
-  statValue: { fontSize: 20, fontWeight: '800', color: colors.accent },
+  statValue: { fontSize: 20, fontWeight: '700', color: colors.accent },
   statLabel: { fontSize: 11, color: colors.inkSoft, textAlign: 'center', marginTop: 2 },
   sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.ink, marginTop: spacing.sm },
   empty: { fontSize: 13, color: colors.inkSoft },

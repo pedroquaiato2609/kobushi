@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { GymExercise } from '../../api/types';
+import { Icon } from '../../components/Icon';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
@@ -35,7 +36,7 @@ export function ExercisePickerScreen({ route, navigation }: Props) {
                 <Text style={styles.rowName}>{item.name}</Text>
                 <Text style={styles.rowSub}>{item.primaryMuscles.map((m) => MUSCLE_LABEL[m]).join(', ')} · {EQUIPMENT_LABEL[item.equipment]}</Text>
               </View>
-              <Text style={styles.rowAdd}>+</Text>
+              <Icon name="plus" size={18} color={colors.accent} />
             </TouchableOpacity>
           )}
         />
@@ -55,5 +56,4 @@ const styles = StyleSheet.create({
   rowMain: { flex: 1, gap: 2 },
   rowName: { fontSize: 14, fontWeight: '700', color: colors.ink },
   rowSub: { fontSize: 12, color: colors.inkSoft },
-  rowAdd: { fontSize: 20, fontWeight: '800', color: colors.accent },
 });

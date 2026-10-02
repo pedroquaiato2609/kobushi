@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.md },
   center: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
   errorTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
-  title: { fontSize: 22, fontWeight: '800', color: colors.ink },
+  title: { fontSize: 22, fontWeight: '700', color: colors.ink },
   author: { fontSize: 14, color: colors.inkSoft, marginTop: 2 },
   statusChip: { alignSelf: 'flex-start', backgroundColor: colors.accentTint, borderRadius: 999, paddingVertical: 4, paddingHorizontal: spacing.sm, marginTop: spacing.xs },
   statusChipText: { fontSize: 12, fontWeight: '700', color: colors.accent },
