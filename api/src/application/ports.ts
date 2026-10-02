@@ -94,6 +94,13 @@ export interface NotificationLogRepository {
   /** true se esta chave ainda não tinha sido registrada (ou seja, pode disparar). */
   claim(key: string): Promise<boolean>;
 }
+/** Tokens de push do app mobile (Expo). Separado de PushSubscriptionRepository (Web Push) porque o
+ * formato e o jeito de mandar são diferentes: aqui é só uma string de token, sem chaves de criptografia. */
+export interface ExpoPushTokenRepository {
+  upsert(token: string): Promise<void>;
+  remove(token: string): Promise<void>;
+  list(): Promise<string[]>;
+}
 export interface PushSubscriptionRepository {
   upsert(s: { endpoint: string; p256dh: string; auth: string }): Promise<void>;
   remove(endpoint: string): Promise<void>;

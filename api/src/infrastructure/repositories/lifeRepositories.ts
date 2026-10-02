@@ -1,5 +1,5 @@
 import type {
-  NotificationLogRepository, NotificationRepository, NotificationSettingsRepository, PushSubscriptionRepository, ReminderRepository,
+  ExpoPushTokenRepository, NotificationLogRepository, NotificationRepository, NotificationSettingsRepository, PushSubscriptionRepository, ReminderRepository,
 } from '../../application/ports';
 import type { AppNotification, Reminder } from '../../domain/entities';
 import type { Db } from '../db/pool';
@@ -83,6 +83,16 @@ export class PgPushSubscriptionRepository implements PushSubscriptionRepository 
   async list() {
     const { rows } = await this.db.query('SELECT endpoint, p256dh, auth FROM push_subscriptions');
     return rows as { endpoint: string; p256dh: string; auth: string }[];
+  }
+}
+
+export class PgExpoPushTokenRepository implements ExpoPushTokenRepository {
+  constructor(private db: Db) {}
+  async upsert(token: string) { await this.db.query('INSERT INTO expo_push_tokens (token) VALUES ($1) ON CONFLICT (token) DO NOTHING', [token]); }
+  async remove(token: string) { await this.db.query('DELETE FROM expo_push_tokens WHERE token = $1', [token]); }
+  async list() {
+    const { rows } = await this.db.query('SELECT token FROM expo_push_tokens');
+    return rows.map((r) => r.token as string);
   }
 }
 

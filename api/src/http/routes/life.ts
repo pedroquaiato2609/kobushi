@@ -50,8 +50,9 @@ export function lifeRoutes(app: FastifyInstance, c: Container) {
     return { ok: true };
   });
 
-  // Celular (Web Push) e WhatsApp
-  app.get('/push/key', async () => ({ publicKey: c.channels.push.configured() ? features.vapidPublicKey : null }));
+  // Celular: Web Push (PWA, app web) e Expo Push (app mobile nativo) — mesmo canal "push" no fim,
+  // transportes diferentes. WhatsApp também mora aqui.
+  app.get('/push/key', async () => ({ publicKey: c.channels.push.webPushConfigured() ? features.vapidPublicKey : null }));
   app.post('/push/subscribe', async (req, reply) => {
     const b = z.object({ endpoint: z.string().url(), keys: z.object({ p256dh: z.string().min(1), auth: z.string().min(1) }) }).parse(req.body);
     await c.pushSubscriptions.upsert({ endpoint: b.endpoint, p256dh: b.keys.p256dh, auth: b.keys.auth });
@@ -61,12 +62,25 @@ export function lifeRoutes(app: FastifyInstance, c: Container) {
     await c.pushSubscriptions.remove(z.object({ endpoint: z.string() }).parse(req.body).endpoint);
     return reply.code(204).send();
   });
-
-  const settingsView = async () => ({
-    whatsappTo: (await c.notificationSettings.get()).whatsappTo,
-    push: { configured: c.channels.push.configured(), devices: (await c.pushSubscriptions.list()).length },
-    whatsapp: { configured: c.channels.whatsapp.configured() },
+  // Expo Push (app mobile): não exige chave nenhuma, só o token do aparelho (ExponentPushToken[...]).
+  app.post('/push/expo-register', async (req, reply) => {
+    const { token } = z.object({ token: z.string().min(10).max(300) }).parse(req.body);
+    await c.expoPushTokens.upsert(token);
+    return reply.code(204).send();
   });
+  app.post('/push/expo-unregister', async (req, reply) => {
+    await c.expoPushTokens.remove(z.object({ token: z.string() }).parse(req.body).token);
+    return reply.code(204).send();
+  });
+
+  const settingsView = async () => {
+    const [webSubs, expoTokens] = await Promise.all([c.pushSubscriptions.list(), c.expoPushTokens.list()]);
+    return {
+      whatsappTo: (await c.notificationSettings.get()).whatsappTo,
+      push: { configured: c.channels.push.webPushConfigured() || expoTokens.length > 0, devices: webSubs.length + expoTokens.length },
+      whatsapp: { configured: c.channels.whatsapp.configured() },
+    };
+  };
   app.get('/notification-settings', settingsView);
   app.put('/notification-settings', async (req) => {
     const b = z.object({ whatsappTo: z.string().max(30) }).parse(req.body);

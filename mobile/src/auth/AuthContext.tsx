@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authApi, loadStoredToken, setToken, setUnauthenticatedHandler, type MeUser } from '../api/client';
+import { registerForPushNotifications, unregisterPushNotifications } from '../lib/notifications';
 
 interface AuthApi {
   user: MeUser | null;
@@ -28,8 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       const t = await loadStoredToken();
       if (t) {
-        try { setUser((await authApi.status()).user); }
-        catch { await clearSession(); }
+        try {
+          setUser((await authApi.status()).user);
+          void registerForPushNotifications(); // não bloqueia o boot — se falhar, só fica sem push
+        } catch { await clearSession(); }
       }
       setBooting(false);
     })();
@@ -42,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const out = await authApi.login(email, password);
       await setToken(out.token);
       setUser(out.user);
+      void registerForPushNotifications(); // idem: não atrasa o login nem quebra ele se der errado
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não consegui entrar.');
       throw e;
@@ -51,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    await unregisterPushNotifications();
     try { await authApi.logout(); } catch { /* mesmo se a chamada falhar, limpa local */ }
     await clearSession();
   }, [clearSession]);

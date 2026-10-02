@@ -52,7 +52,7 @@ import { PgEventRepository } from './infrastructure/repositories/eventRepository
 import { PgExecutionRepository } from './infrastructure/repositories/executionRepository';
 import { PgDocumentRepository, PgFolderRepository } from './infrastructure/repositories/libraryRepositories';
 import {
-  PgNotificationLogRepository, PgNotificationRepository, PgNotificationSettingsRepository, PgPushSubscriptionRepository, PgReminderRepository,
+  PgExpoPushTokenRepository, PgNotificationLogRepository, PgNotificationRepository, PgNotificationSettingsRepository, PgPushSubscriptionRepository, PgReminderRepository,
 } from './infrastructure/repositories/lifeRepositories';
 import { PgMeditationRepository } from './infrastructure/repositories/meditationRepository';
 import { PgReviewRepository } from './infrastructure/repositories/reviewRepository';
@@ -77,6 +77,7 @@ export function createContainer() {
   const inbox = new PgNotificationRepository(pool);
   const notificationLog = new PgNotificationLogRepository(pool);
   const pushSubscriptions = new PgPushSubscriptionRepository(pool);
+  const expoPushTokens = new PgExpoPushTokenRepository(pool);
   const notificationSettings = new PgNotificationSettingsRepository(pool);
   const vaultRepo = new PgVaultRepository(pool);
   const profileRepo = new PgProfileRepository(pool);
@@ -156,7 +157,7 @@ export function createContainer() {
   const pluggyWebhooks = new PluggyWebhookQueue(pool, fieldCrypto, (event) => openFinance.handleWebhook(event));
 
   // notificações
-  const channels = { push: new PushChannel(pushSubscriptions), whatsapp: new WhatsAppChannel(notificationSettings) };
+  const channels = { push: new PushChannel(pushSubscriptions, expoPushTokens), whatsapp: new WhatsAppChannel(notificationSettings) };
   const notifier = new Notifier(inbox, [channels.push, channels.whatsapp]);
   const scheduler = new ReminderScheduler({
     reminders: reminderRepo, activities: activityRepo, commutes: commuteRepo, executions: executionRepo, events: eventRepo,
@@ -205,7 +206,7 @@ export function createContainer() {
 
   return {
     activities, commutes, scheduling, gym, reading, study, executions, events, boards, reviews, meditation, stats, reminders, documents, profile, vault, principles,
-    inbox, notifier, channels, pushSubscriptions, notificationSettings, scheduler,
+    inbox, notifier, channels, pushSubscriptions, expoPushTokens, notificationSettings, scheduler,
     auth, audit, finance, suggestions, suggestionRepo, exporter, openFinance, pluggyWebhooks,
     agent: { tools, policy, runner, orchestrator, settingsRepo, permissionRepo, actionRepo, conversationRepo },
     stt: new OpenAiTranscriber(),
