@@ -187,3 +187,14 @@ export const monthlyEquivalent = (r: Pick<FinRecurring, 'frequency' | 'amountCen
   const net = netRecurringCents(r);
   return r.frequency === 'monthly' ? net : r.frequency === 'weekly' ? Math.round((net * 52) / 12) : Math.round(net / 12);
 };
+
+export interface IncomeCommitment { incomeCents: number; fixedCents: number; invoicesCents: number; committedCents: number; pct: number }
+/** Quanto da renda média já está comprometido com gastos fixos (recorrências ativas) e faturas fechadas a pagar. */
+export function incomeCommitment(d: FinData, month: string): IncomeCommitment {
+  const last3 = monthsBack(prevMonth(month), 3).map((m) => monthSummary(d, m).incomeCents).filter((x) => x > 0);
+  const incomeCents = last3.length ? Math.round(last3.reduce((a, b) => a + b, 0) / last3.length) : monthSummary(d, month).incomeCents;
+  const fixedCents = d.recurring.filter((r) => r.active && r.kind === 'expense').reduce((n, r) => n + monthlyEquivalent(r), 0);
+  const invoicesCents = d.accounts.reduce((n, a) => n + (cardInvoices(a, d)?.closed?.remainingCents ?? 0), 0);
+  const committedCents = fixedCents + invoicesCents;
+  return { incomeCents, fixedCents, invoicesCents, committedCents, pct: incomeCents > 0 ? Math.round((committedCents / incomeCents) * 100) : 0 };
+}

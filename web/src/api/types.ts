@@ -174,6 +174,7 @@ export interface FinOverview {
   cashFlow: { month: string; incomeCents: number; expenseCents: number; netCents: number }[];
   patrimony: { month: string; netCents: number }[];
   upcoming: Upcoming[]; budgets: BudgetStatus[]; goals: FinGoal[]; insights: Insight[]; insightCount: number;
+  commitment: { incomeCents: number; fixedCents: number; invoicesCents: number; committedCents: number; pct: number };
 }
 
 // ---- Open Finance (somente leitura)

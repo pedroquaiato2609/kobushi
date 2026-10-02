@@ -49,6 +49,11 @@ export function OverviewTab({ data, month, setMonth, categories, onPayInvoice }:
         <Tile label={`Receitas · ${monthLabel(month)}`} sub={s.pendingIncomeCents > 0 ? <>+ <Money cents={s.pendingIncomeCents} /> a receber</> : 'confirmadas'} tone="good"><Money cents={s.incomeCents} /></Tile>
         <Tile label="Despesas no mês" sub={<>{expDelta !== null ? `${expDelta >= 0 ? '+' : '−'}${Math.abs(expDelta)}% vs. mês anterior` : 'sem mês anterior para comparar'}{s.pendingExpenseCents > 0 && <> · <Money cents={s.pendingExpenseCents} /> a pagar</>}</>}><Money cents={s.expenseCents} /></Tile>
         <Tile label="Resultado do mês" sub="receitas − despesas confirmadas" tone={s.netCents >= 0 ? 'good' : 'bad'}><Money cents={s.netCents} sign /></Tile>
+        {data.commitment.incomeCents > 0 && (
+          <Tile label="Gastos fixos (recorrências + faturas)" sub={<>{data.commitment.pct}% da sua renda média (<Money cents={data.commitment.incomeCents} />)</>} tone={data.commitment.pct >= 90 ? 'bad' : data.commitment.pct < 50 ? 'good' : undefined}>
+            <Money cents={data.commitment.committedCents} />
+          </Tile>
+        )}
       </div>
 
       <div className="fin-cols">
@@ -66,6 +71,17 @@ export function OverviewTab({ data, month, setMonth, categories, onPayInvoice }:
         <div className="panel-head"><h2>Evolução do patrimônio</h2></div>
         <PatrimonyChart data={data.patrimony} />
       </section>
+
+      {data.commitment.incomeCents > 0 && (
+        <section className="panel">
+          <div className="panel-head"><h2>Renda comprometida</h2><button className="btn small ghost" onClick={() => navigate('/financas?tab=recorrentes')}>Ver recorrências</button></div>
+          <div className="budget-top"><b>Gastos fixos + faturas a pagar</b><span><Money cents={data.commitment.committedCents} /> de <Money cents={data.commitment.incomeCents} /> · {data.commitment.pct}%</span></div>
+          <div className={`bar-track ${data.commitment.pct >= 90 ? 'exceeded' : data.commitment.pct >= 70 ? 'risk' : 'ok'}`} role="progressbar" aria-valuenow={Math.min(100, data.commitment.pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`Renda comprometida: ${data.commitment.pct}%`}>
+            <i style={{ width: `${Math.min(100, data.commitment.pct)}%` }} />
+          </div>
+          <p className="muted small">Renda média (últimos meses com receita): <Money cents={data.commitment.incomeCents} /> · Gastos fixos por mês: <Money cents={data.commitment.fixedCents} />{data.commitment.invoicesCents > 0 && <> · Faturas fechadas a pagar: <Money cents={data.commitment.invoicesCents} /></>}</p>
+        </section>
+      )}
 
       {data.insights.length > 0 && (
         <section className="panel">

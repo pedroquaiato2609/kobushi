@@ -813,7 +813,7 @@ input[type='checkbox'] { width: 16px; height: 16px; accent-color: var(--accent);
 .fin-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .fin-grid .span-2 { grid-column: span 2; }
 .fin-grid .span-3 { grid-column: 1 / -1; }
-.fin-tiles { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.fin-tiles { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
 .fin-tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 18px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .fin-tile.good { border-left: 3px solid var(--ideal); }
 .fin-tile.bad { border-left: 3px solid var(--danger); }

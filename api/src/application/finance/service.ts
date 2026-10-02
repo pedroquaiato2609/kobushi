@@ -5,7 +5,7 @@ import { AppError, NotFoundError, ValidationError } from '../../domain/errors';
 import { brl } from '../../domain/money';
 import type { FieldCrypto } from '../fieldCrypto';
 import {
-  advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthSummary, netRecurringCents, patrimony, prevMonth, totals, upcoming, ym,
+  advanceDue, balances, budgetStatus, cardInvoices, cashFlow, incomeCommitment, monthSummary, netRecurringCents, patrimony, prevMonth, totals, upcoming, ym,
 } from './analytics';
 import { DEFAULT_CATEGORIES } from './defaults';
 import { buildDemo } from './demo';
@@ -109,6 +109,7 @@ export class FinanceService {
       totals: totals(d), accounts, summary: monthSummary(d, m), previousSummary: monthSummary(d, prevMonth(m)),
       cashFlow: cashFlow(d, m, 12), patrimony: patrimony(d, m, 12), upcoming: upcoming(d, 30),
       budgets: budgetStatus(d, m), goals: d.goals, insights: insights.slice(0, 4), insightCount: insights.length,
+      commitment: incomeCommitment(d, m),
     };
   }
 
