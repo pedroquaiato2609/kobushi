@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { advanceDue, balances, budgetStatus, cardInvoices, cashFlow, monthlyEquivalent, monthSummary, netRecurringCents, patrimony, totals, upcoming } from '../src/application/finance/analytics';
+import { advanceDue, balances, budgetStatus, cardInvoices, cashFlow, incomeCommitment, monthlyEquivalent, monthSummary, netRecurringCents, patrimony, totals, upcoming } from '../src/application/finance/analytics';
 import { computeInsights } from '../src/application/finance/insights';
 import { FieldCrypto } from '../src/application/fieldCrypto';
 import { FinanceService } from '../src/application/finance/service';
@@ -103,6 +103,17 @@ test('recorrência: desconto (%) reduz o valor lançado e a equivalência mensal
   assert.equal(netRecurringCents({ amountCents: 10000, discountPct: 0 }), 10000); // 0% é "sem desconto": não divide por zero nem quebra
   assert.equal(monthlyEquivalent({ frequency: 'yearly', amountCents: 120000, discountPct: 50 }), 5000); // 60000 líquidos / 12
   assert.equal(monthlyEquivalent({ frequency: 'weekly', amountCents: 10000, discountPct: null }), Math.round((10000 * 52) / 12));
+});
+
+test('renda comprometida: usa o salário cadastrado em "Minha renda" quando existe, só cai pra média se não tiver nenhum', () => {
+  const salary: FinRecurring = { id: 'sal', userId: U, description: 'Salário', amountCents: 500000, kind: 'income', categoryId: null, accountId: 'chk', frequency: 'monthly', nextDue: '2026-10-05', active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'manual', discountPct: null };
+  const rent: FinRecurring = { id: 'rent', userId: U, description: 'Aluguel', amountCents: 200000, kind: 'expense', categoryId: null, accountId: 'chk', frequency: 'monthly', nextDue: '2026-10-05', active: true, isSubscription: false, usage: null, remindDaysBefore: null, remindChannels: [], source: 'manual', discountPct: null };
+  // com salário cadastrado: ignora a renda média de transações passadas, mesmo que ela diga outra coisa
+  const withSalary = incomeCommitment(data({ recurring: [salary, rent], txs: [tx({ kind: 'income', amountCents: 999900, occurredOn: '2026-08-05' })] }), '2026-09');
+  assert.deepEqual([withSalary.basis, withSalary.incomeCents, withSalary.pct], ['salary', 500000, 40]);
+  // salário pausado (active: false) não conta: cai pra média das receitas confirmadas
+  const paused = incomeCommitment(data({ recurring: [{ ...salary, active: false }, rent], txs: [tx({ kind: 'income', amountCents: 400000, occurredOn: '2026-08-05' })] }), '2026-09');
+  assert.deepEqual([paused.basis, paused.incomeCents], ['average', 400000]);
 });
 
 test('insights: categoria em alta, fora do padrão e duplicidade, cada um com os dados usados', () => {

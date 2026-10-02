@@ -50,7 +50,7 @@ export function OverviewTab({ data, month, setMonth, categories, onPayInvoice }:
         <Tile label="Despesas no mês" sub={<>{expDelta !== null ? `${expDelta >= 0 ? '+' : '−'}${Math.abs(expDelta)}% vs. mês anterior` : 'sem mês anterior para comparar'}{s.pendingExpenseCents > 0 && <> · <Money cents={s.pendingExpenseCents} /> a pagar</>}</>}><Money cents={s.expenseCents} /></Tile>
         <Tile label="Resultado do mês" sub="receitas − despesas confirmadas" tone={s.netCents >= 0 ? 'good' : 'bad'}><Money cents={s.netCents} sign /></Tile>
         {data.commitment.incomeCents > 0 && (
-          <Tile label="Gastos fixos (recorrências + faturas)" sub={<>{data.commitment.pct}% da sua renda média (<Money cents={data.commitment.incomeCents} />)</>} tone={data.commitment.pct >= 90 ? 'bad' : data.commitment.pct < 50 ? 'good' : undefined}>
+          <Tile label="Gastos fixos (recorrências + faturas)" sub={<>{data.commitment.pct}% do seu {data.commitment.basis === 'salary' ? 'salário' : 'renda média'} (<Money cents={data.commitment.incomeCents} />)</>} tone={data.commitment.pct >= 90 ? 'bad' : data.commitment.pct < 50 ? 'good' : undefined}>
             <Money cents={data.commitment.committedCents} />
           </Tile>
         )}
@@ -79,7 +79,7 @@ export function OverviewTab({ data, month, setMonth, categories, onPayInvoice }:
           <div className={`bar-track ${data.commitment.pct >= 90 ? 'exceeded' : data.commitment.pct >= 70 ? 'risk' : 'ok'}`} role="progressbar" aria-valuenow={Math.min(100, data.commitment.pct)} aria-valuemin={0} aria-valuemax={100} aria-label={`Renda comprometida: ${data.commitment.pct}%`}>
             <i style={{ width: `${Math.min(100, data.commitment.pct)}%` }} />
           </div>
-          <p className="muted small">Renda média (últimos meses com receita): <Money cents={data.commitment.incomeCents} /> · Gastos fixos por mês: <Money cents={data.commitment.fixedCents} />{data.commitment.invoicesCents > 0 && <> · Faturas fechadas a pagar: <Money cents={data.commitment.invoicesCents} /></>}</p>
+          <p className="muted small">{data.commitment.basis === 'salary' ? 'Salário cadastrado (em "Minha renda")' : 'Renda média (últimos meses com receita)'}: <Money cents={data.commitment.incomeCents} /> · Gastos fixos por mês: <Money cents={data.commitment.fixedCents} />{data.commitment.invoicesCents > 0 && <> · Faturas fechadas a pagar: <Money cents={data.commitment.invoicesCents} /></>}</p>
         </section>
       )}
 

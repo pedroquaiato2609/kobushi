@@ -194,9 +194,9 @@ export function computeInsights(d: FinData): Insight[] {
   const commit = incomeCommitment(d, month);
   if (commit.committedCents > 0 && commit.pct >= 50) out.push({
     key: `committed:${month}`, type: 'income_committed', severity: commit.pct >= 90 ? 'high' : commit.pct >= 70 ? 'attention' : 'info',
-    title: `${commit.pct}% da sua renda já está comprometida`,
-    summary: `Despesas fixas e faturas a pagar somam ${brl(commit.committedCents)} para uma renda média de ${brl(commit.incomeCents)}.`,
-    why: [`Renda média (últimos meses com receita): ${brl(commit.incomeCents)}`, `Recorrências ativas por mês: ${brl(commit.fixedCents)}`, `Faturas fechadas a pagar: ${brl(commit.invoicesCents)}`], actions: [{ kind: 'open', label: 'Ver recorrências', href: '/financas?tab=recorrentes' }],
+    title: `${commit.pct}% do seu ${commit.basis === 'salary' ? 'salário' : 'renda média'} já está comprometido`,
+    summary: `Despesas fixas e faturas a pagar somam ${brl(commit.committedCents)} para ${commit.basis === 'salary' ? 'um salário de' : 'uma renda média de'} ${brl(commit.incomeCents)}.`,
+    why: [`${commit.basis === 'salary' ? 'Salário cadastrado (em "Minha renda")' : 'Renda média (últimos meses com receita)'}: ${brl(commit.incomeCents)}`, `Recorrências ativas por mês: ${brl(commit.fixedCents)}`, `Faturas fechadas a pagar: ${brl(commit.invoicesCents)}`], actions: [{ kind: 'open', label: 'Ver recorrências', href: '/financas?tab=recorrentes' }],
   });
 
   // 11) Evolução da reserva (contas do tipo poupança/reserva)
