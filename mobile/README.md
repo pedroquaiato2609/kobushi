@@ -90,7 +90,10 @@ src/
                                também deixa configurar mínimo/máximo)
     chat/
       ChatScreen.tsx          conversa com o assistente (envio síncrono, sem streaming —
-                              ver nota abaixo) + cartão de aprovar/rejeitar ações pendentes
+                              ver nota abaixo) + lista/trocar/apagar/criar conversa (modal),
+                              sugestões de pergunta na conversa vazia, chips do que o
+                              agente fez em cada turno, botões de resposta rápida
+                              (offer_options) e cartão de aprovar/rejeitar ações pendentes
     agenda/
       AgendaScreen.tsx         dia selecionado (anterior/próximo) em formato de LISTA
                               cronológica — atividades aplicáveis, deslocamentos e eventos,
@@ -100,9 +103,10 @@ src/
                               inteiro só pro mobile
     activities/
       ActivitiesScreen.tsx     lista (filtro por tipo, arquivadas), nível do dia inline
-      NewActivityScreen.tsx    cria OU edita (versão reduzida do formulário do app web:
-                              um único conjunto de blocos de horário, sem horário
-                              diferente por dia da semana, sem sugestão de horário por IA)
+      NewActivityScreen.tsx    cria OU edita — paridade completa com o app web: horário
+                              diferente por dia da semana (toggle "horário diferente em
+                              algum dia"), e botão de sugestão de melhor horário por IA
+                              pra atividades de horário livre/período
     reminders/
       RemindersScreen.tsx      lista unificada (lembrete avulso + atividade + deslocamento
                               + evento) igual à do app web; editar um evento ainda não
@@ -204,19 +208,28 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       com a mesma lógica de "sessão única" x "várias séries" do app web), cronômetro
       isolado num componente próprio (não derruba a performance do resto da tela),
       adicionar exercício durante o treino, biblioteca de exercícios com busca,
-      **+ novo treino** (metas por exercício), **+ novo/editar/apagar exercício** —
+      **+ novo treino** (metas por exercício nos 3 níveis — mín./ideal/máx., igual ao app
+      web), **+ novo/editar/apagar exercício** —
       **finalizar treino** abre um popup com resumo (duração, séries, volume, recordes),
       exercícios feitos, escolha de nível (mín./ideal/máx.) e observações, igual ao app web
 - [x] **Assistente**: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
       confirmações antes de gravar algo) — ver a nota sobre streaming acima; sempre
-      reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio
-- [x] **Mais** (menu com os 8 módulos abaixo, todos verificados ponta a ponta contra um
+      reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio;
+      múltiplas conversas (listar, trocar, criar, apagar), sugestões de pergunta na
+      conversa vazia, chips do que o agente executou em cada turno e os botões de
+      resposta rápida que o assistente oferece
+- [x] **Mais** (menu com os módulos abaixo, todos verificados ponta a ponta contra um
       backend de teste — criar, ver e, quando faz sentido, editar/apagar):
-      - **Agenda**: dia selecionado em lista cronológica (atividades, deslocamentos, eventos)
+      - **Dashboard**: período (7/30/90 dias), resumo, gráfico de barras por dia e por
+        atividade (feito só com `View`, sem lib de gráfico — não roda no navegador/React
+        Native a mesma lib que o app web usa), card de leitura, resumo de meditação
+        (**+ registrar**), revisões recentes (**+ revisão de hoje**)
+      - **Agenda**: dia selecionado em lista cronológica (atividades, deslocamentos,
+        eventos), **+ criar/editar/apagar evento**
       - **Atividades**: cadastro completo (tipo, horário fixo/período/livre, dias da
         semana, níveis, lembrete), nível do dia
       - **Lembretes**: lista unificada (avulsos + atividades + deslocamentos + eventos),
-        **+ novo lembrete avulso**
+        **+ novo lembrete avulso**; tocar num evento abre a edição completa dele
       - **Deslocamentos**: ancorado numa atividade de horário definido, com prévia do
         horário calculado por dia da semana
       - **Princípios**: protegidos pela senha do Cofre, organizados em pastas
@@ -224,9 +237,15 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       - **Kanban**: quadros, colunas, cards (mover de coluna sem arrastar, pelo detalhe)
       - **Documentos**: notas, listas (checklist) e arquivos em pastas, com busca
       - **Configurações**: Conta (dados, trocar senha, dispositivos conectados e
-        desconectar), Cofre & Perfil (criar/desbloquear/trocar/reiniciar o Cofre +
-        informações que a IA usa, nos 3 níveis de confidencialidade), Notificações (sino,
-        celular/push e WhatsApp, cada um com botão de teste)
+        desconectar, **+ exportar meus dados / apagar dados financeiros / apagar tudo —
+        LGPD**, cada ação pedindo a senha de novo), Cofre & Perfil
+        (criar/desbloquear/trocar/reiniciar o Cofre + informações que a IA usa, nos 3
+        níveis de confidencialidade), Notificações (sino, celular/push e WhatsApp, cada
+        um com botão de teste), **Agente** (provedor/modelo de IA, instruções
+        permanentes, idioma/tom), **Assistente proativo** (quando e o que ele pode
+        sugerir sozinho, silêncio, revisão diária/semanal), **Permissões** (o que o
+        agente pode fazer sozinho, ferramenta por ferramenta, com 3 atalhos prontos) e
+        **Histórico** (tudo que o agente já tentou/fez, com detalhe técnico)
 
 ## "Trocar de aba não carrega" — achada a causa real (não era navegação)
 
@@ -273,34 +292,35 @@ pra sempre sem dizer por quê.
 ## Próximos passos
 
 1. **Login com Google** — combinado com o usuário, esperando ele criar o projeto no
-   Google Cloud Console e mandar as credenciais (client ID/secret web + Android)
-2. Fechar a lacuna de Academia: metas de treino com níveis mínimo/ideal/máximo (hoje o
-   app mobile só grava o nível "ideal" ao criar um treino novo)
-3. Chat: múltiplas conversas (hoje só usa uma) e os botões de resposta rápida/atalho que
-   o app web mostra
-4. Dentro dos módulos do menu "Mais", o que ficou de fora por exigir uma dependência
-   nativa nova (sem build pra testar ainda) ou por ser uma reescrita grande demais pra
-   essa passada:
+   Google Cloud Console e mandar as credenciais (client ID/secret web + Android). É o
+   único item pendente que o usuário pediu para deixar de fora da passada de "fazer tudo
+   que falta" — depende de uma credencial que só ele pode gerar.
+2. **Voz**: configuração do ditado por voz — não existe porque o mobile ainda não tem
+   ditado por voz (precisaria de uma dependência nativa nova, sem build pra testar ainda)
+3. O que ficou de fora por exigir uma dependência nativa nova (sem build pra testar
+   ainda) ou por ser uma reescrita grande demais:
    - Upload de arquivo em Documentos (precisa de `expo-document-picker`)
    - Editor de texto rico em Estudos/Documentos/Kanban (hoje é texto simples; o app web
      usa TipTap, que não roda em React Native)
    - Arrastar-e-soltar no Kanban (mover card de coluna já funciona, só não por drag)
-   - Editar evento da Agenda/Lembretes a partir do mobile (só mostra, não edita)
-   - Horário por dia da semana diferente numa mesma atividade, e sugestão de horário
-     por IA, no formulário de Atividades
    - Agenda como grade visual (TimeGrid) em vez de lista — plausível, mas é um
      componente de calendário à parte, não só "mais uma tela"
-5. Dentro de Configurações, o que ainda não tem tela própria aqui (o app web tem 8 abas:
-   Agente, Assistente, Voz, Perfil, Notificações, Permissões, Segurança, Histórico — o
-   mobile portou só o essencial pra uso pessoal: Conta+Dispositivos+Senha, Cofre+Perfil,
-   Notificações):
-   - **Agente**: escolher provedor/modelo de IA, instruções permanentes, idioma/tom
-   - **Assistente**: quando o assistente pode tomar a iniciativa de sugerir algo
-   - **Voz**: configuração do ditado por voz (mobile ainda não tem ditado por voz)
-   - **Permissões**: o que o agente pode fazer sozinho, ferramenta por ferramenta
-   - **Histórico**: log de tudo que o agente tentou/fez
-   - Exportar meus dados / apagar dados financeiros / apagar tudo (LGPD)
+   - Efeito de "digitando" no chat (streaming) — ver a nota dedicada acima
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `MoreStack` (ou ao `RootNavigator`, se for
 grande o bastante pra virar uma aba própria).
+
+## Bug de backend achado testando a tela de LGPD ("apagar tudo")
+
+Ao verificar o botão **Apagar tudo e reiniciar** (novo em Configurações → Conta) contra
+um backend de teste de verdade, `DELETE /privacy/everything` sempre dava **500** —
+mesmo com a conta corretamente apagada do banco (a sessão já morria, mas o usuário via
+um erro). Causa: `PgExportRepository.eraseEverything()`
+(`api/src/infrastructure/repositories/exportRepository.ts`) tentava `rm()` na própria
+pasta `FILES_DIR`, que em todo ambiente Docker (desenvolvimento e produção) é um
+**ponto de montagem** — não dá pra remover o ponto de montagem em si
+(`EBUSY: resource busy or locked, rmdir '/data/files'`), só o que tem dentro dele.
+Corrigido para apagar o **conteúdo** da pasta (`readdir` + `rm` de cada entrada), sem
+tocar na pasta em si. Re-testado contra o mesmo backend: `204` e sessão encerrada
+corretamente. Suite completa (231 testes) e `tsc --noEmit` seguem passando.

@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { api } from '../../api/client';
+import { Alert, ScrollView, Share, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ApiError, api } from '../../api/client';
 import type { SessionInfo } from '../../api/types';
 import { useAuth } from '../../auth/AuthContext';
 import { Icon } from '../../components/Icon';
@@ -30,6 +30,77 @@ export function AccountScreen({ navigation }: Props) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+
+  // LGPD: exportar/apagar dados, com reconfirmação de senha quando o servidor exigir.
+  const [reauthPw, setReauthPw] = useState('');
+  const [reauthBusy, setReauthBusy] = useState(false);
+  const [reauthErr, setReauthErr] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const [privacyBusy, setPrivacyBusy] = useState<null | 'export' | 'finance' | 'everything'>(null);
+  const [privacyErr, setPrivacyErr] = useState<string | null>(null);
+  const [confirmFinance, setConfirmFinance] = useState('');
+  const [confirmEverything, setConfirmEverything] = useState('');
+  const [showDanger, setShowDanger] = useState(false);
+
+  async function withReauth(fn: () => Promise<void>) {
+    setPrivacyErr(null);
+    try {
+      await fn();
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'reauth_required') {
+        setReauthErr(null);
+        setReauthPw('');
+        setPendingAction(() => fn);
+      } else {
+        setPrivacyErr(e instanceof Error ? e.message : 'Não consegui concluir.');
+      }
+    }
+  }
+
+  async function confirmReauth() {
+    if (!pendingAction) return;
+    setReauthErr(null); setReauthBusy(true);
+    try {
+      await api.post('/auth/reauth', { password: reauthPw });
+      const fn = pendingAction;
+      setPendingAction(null);
+      setReauthPw('');
+      await fn();
+    } catch (e) {
+      setReauthErr(e instanceof Error ? e.message : 'Senha incorreta.');
+    } finally {
+      setReauthBusy(false);
+    }
+  }
+
+  async function exportData() {
+    setPrivacyBusy('export');
+    try {
+      const data = await api.get<Record<string, unknown>>('/privacy/export');
+      await Share.share({ message: JSON.stringify(data, null, 2), title: 'Meus dados — Ninshiki' });
+    } finally {
+      setPrivacyBusy(null);
+    }
+  }
+  async function deleteFinance() {
+    setPrivacyBusy('finance');
+    try {
+      await api.del('/privacy/finance', { confirm: 'EXCLUIR' });
+      setConfirmFinance('');
+      await qc.invalidateQueries();
+    } finally {
+      setPrivacyBusy(null);
+    }
+  }
+  async function deleteEverything() {
+    setPrivacyBusy('everything');
+    try {
+      await api.del('/privacy/everything', { confirm: 'EXCLUIR TUDO' });
+      await logout();
+    } finally {
+      setPrivacyBusy(null);
+    }
+  }
 
   async function revoke(id: string) {
     await api.del(`/auth/sessions/${id}`);
@@ -110,6 +181,67 @@ export function AccountScreen({ navigation }: Props) {
           <Text style={styles.submitText}>{busy ? 'Trocando…' : 'Trocar senha'}</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.block}>
+        <Text style={styles.blockTitle}>Seus dados (LGPD)</Text>
+        <Text style={styles.hint}>Exportar ou apagar seus dados pede a sua senha de novo, por segurança.</Text>
+        {privacyErr && <Text style={styles.error}>{privacyErr}</Text>}
+
+        {pendingAction && (
+          <View style={styles.reauthBox}>
+            <Text style={styles.label}>Confirme sua senha para continuar</Text>
+            <TextInput style={styles.input} value={reauthPw} onChangeText={setReauthPw} secureTextEntry autoComplete="current-password" autoFocus />
+            {reauthErr && <Text style={styles.error}>{reauthErr}</Text>}
+            <View style={styles.row2}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setPendingAction(null); setReauthPw(''); setReauthErr(null); }}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submit, { flex: 1 }, reauthBusy && styles.submitDisabled]} disabled={reauthBusy || !reauthPw} onPress={() => void confirmReauth()}>
+                <Text style={styles.submitText}>{reauthBusy ? 'Confirmando…' : 'Confirmar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        <TouchableOpacity
+          style={[styles.secondaryBtn, privacyBusy !== null && styles.submitDisabled]}
+          disabled={privacyBusy !== null}
+          onPress={() => void withReauth(exportData)}
+        >
+          <Icon name="download" size={14} color={colors.ink} />
+          <Text style={styles.secondaryBtnText}>{privacyBusy === 'export' ? 'Exportando…' : 'Exportar meus dados'}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.dangerToggle} onPress={() => setShowDanger((v) => !v)}>
+          <Text style={styles.dangerToggleText}>{showDanger ? 'Esconder zona de risco' : 'Zona de risco'}</Text>
+        </TouchableOpacity>
+
+        {showDanger && (
+          <View style={styles.dangerBox}>
+            <Text style={styles.label}>Apagar dados financeiros</Text>
+            <Text style={styles.hint}>Apaga contas, transações, categorias e recorrências. Não pode ser desfeito. Digite EXCLUIR para confirmar.</Text>
+            <TextInput style={styles.input} value={confirmFinance} onChangeText={setConfirmFinance} autoCapitalize="characters" placeholder="EXCLUIR" />
+            <TouchableOpacity
+              style={[styles.dangerBtn, (confirmFinance !== 'EXCLUIR' || privacyBusy !== null) && styles.submitDisabled]}
+              disabled={confirmFinance !== 'EXCLUIR' || privacyBusy !== null}
+              onPress={() => void withReauth(deleteFinance)}
+            >
+              <Text style={styles.dangerBtnText}>{privacyBusy === 'finance' ? 'Apagando…' : 'Apagar dados financeiros'}</Text>
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { marginTop: spacing.md }]}>Apagar tudo e reiniciar</Text>
+            <Text style={styles.hint}>Apaga toda a sua conta e todos os dados do Ninshiki, sem volta. Você será desconectado. Digite EXCLUIR TUDO para confirmar.</Text>
+            <TextInput style={styles.input} value={confirmEverything} onChangeText={setConfirmEverything} autoCapitalize="characters" placeholder="EXCLUIR TUDO" />
+            <TouchableOpacity
+              style={[styles.dangerBtn, (confirmEverything !== 'EXCLUIR TUDO' || privacyBusy !== null) && styles.submitDisabled]}
+              disabled={confirmEverything !== 'EXCLUIR TUDO' || privacyBusy !== null}
+              onPress={() => void withReauth(deleteEverything)}
+            >
+              <Text style={styles.dangerBtnText}>{privacyBusy === 'everything' ? 'Apagando…' : 'Apagar tudo e reiniciar'}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
     </ScrollView>
   );
 }
@@ -136,4 +268,15 @@ const styles = StyleSheet.create({
   submit: { backgroundColor: colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: spacing.xs },
   submitDisabled: { opacity: 0.7 },
   submitText: { color: '#fff', fontWeight: '700' },
+  row2: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.xs },
+  reauthBox: { backgroundColor: colors.surface2, borderRadius: 10, padding: spacing.sm, gap: 4, marginTop: spacing.xs },
+  cancelBtn: { flex: 1, borderWidth: 1, borderColor: colors.line, borderRadius: 10, paddingVertical: 12, alignItems: 'center', backgroundColor: colors.surface },
+  cancelBtnText: { color: colors.inkSoft, fontWeight: '700' },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: colors.line, borderRadius: 10, paddingVertical: 10, paddingHorizontal: spacing.md, justifyContent: 'center', marginTop: spacing.xs },
+  secondaryBtnText: { color: colors.ink, fontWeight: '700', fontSize: 13 },
+  dangerToggle: { alignSelf: 'flex-start', marginTop: spacing.sm },
+  dangerToggleText: { color: colors.danger, fontSize: 12, fontWeight: '700' },
+  dangerBox: { borderWidth: 1, borderColor: colors.danger, borderRadius: 10, padding: spacing.sm, gap: 4, marginTop: spacing.xs },
+  dangerBtn: { backgroundColor: colors.danger, borderRadius: 10, paddingVertical: 12, alignItems: 'center', marginTop: spacing.xs },
+  dangerBtnText: { color: '#fff', fontWeight: '700' },
 });

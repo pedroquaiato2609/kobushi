@@ -1,4 +1,5 @@
-import { mkdir, rm } from 'node:fs/promises';
+import { readdir, rm } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { Db } from '../db/pool';
 import { withTx } from '../db/pool';
 
@@ -25,10 +26,15 @@ export class PgExportRepository {
     return out;
   }
 
-  /** Apaga TUDO (inclusive usuários e anexos). O app volta à tela de primeiro acesso. */
+  /**
+   * Apaga TUDO (inclusive usuários e anexos). O app volta à tela de primeiro acesso.
+   * Apaga o CONTEÚDO de filesDir, não a pasta em si: em produção e no Docker Compose de desenvolvimento
+   * ela é um ponto de montagem (volume), e tentar remover o próprio ponto de montagem falha com
+   * EBUSY (ou ENOTEMPTY/EPERM conforme o storage driver) — descoberto ao testar este fluxo de verdade.
+   */
   async eraseEverything() {
     await withTx(async (tx) => { await tx.query(`TRUNCATE ${ERASE.join(', ')} RESTART IDENTITY CASCADE`); });
-    await rm(this.filesDir, { recursive: true, force: true });
-    await mkdir(this.filesDir, { recursive: true });
+    const entries = await readdir(this.filesDir).catch(() => [] as string[]);
+    await Promise.all(entries.map((name) => rm(join(this.filesDir, name), { recursive: true, force: true })));
   }
 }

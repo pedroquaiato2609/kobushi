@@ -190,3 +190,36 @@ export type ProfileLevel = 'general' | 'private' | 'secret';
 export interface ProfileItem { id: string; title: string; content: string | null; level: ProfileLevel; locked: boolean; updatedAt: string }
 export interface SessionInfo { id: string; userAgent: string; ip: string; createdAt: string; lastSeenAt: string; current: boolean }
 export interface NotificationChannels { whatsappTo: string; push: { configured: boolean; devices: number }; whatsapp: { configured: boolean } }
+
+// ---- Dashboard/estatísticas (revisão diária, meditação, gráficos) ------------------------------
+export interface DailyReview { date: string; responsibilities: string; goals: string; state: string; learned: string }
+export interface MeditationSession {
+  id: string; date: string; durationMin: number; attention: number | null; spatial: number | null;
+  sound: number | null; imagery: number | null; afterState: number | null; note: string;
+}
+export interface DayStats { date: string; applicable: number; done: number; min: number; ideal: number; max: number }
+export interface ActivityStats {
+  activityId: string; name: string; kind: ActivityKind; applicable: number; min: number; ideal: number; max: number; missed: number;
+}
+export interface Stats {
+  from: string; to: string; days: DayStats[]; byActivity: ActivityStats[];
+  totals: { applicable: number; done: number; min: number; ideal: number; max: number };
+  currentStreak: number; meditation: MeditationSession[];
+}
+
+// ---- Configurações do agente (Agente, Permissões, Assistente proativo, Histórico) --------------
+export interface AgentSettings {
+  provider: 'anthropic' | 'openai'; model: string; customInstructions: string; tone: string; language: string;
+  includeRoutineContext: boolean; maxToolSteps: number; sttMode: 'server' | 'browser'; sttModel: string;
+}
+export type PermissionMode = 'allow' | 'confirm' | 'deny';
+export interface PermissionRow {
+  tool: string; resource: string; action: 'read' | 'create' | 'update' | 'delete'; label: string; description: string;
+  mode: PermissionMode; defaultMode: PermissionMode; locked?: boolean;
+}
+export interface AgentStatus { providers: { anthropic: boolean; openai: boolean }; timezone: string }
+export type SuggestionType = 'agenda' | 'routine' | 'review' | 'finance';
+export interface AssistantProactiveSettings {
+  proactivity: 'off' | 'low' | 'normal'; types: SuggestionType[]; maxPerDay: number; quietStart: string; quietEnd: string;
+  dailyReviewTime: string | null; weeklyReviewTime: string | null;
+}

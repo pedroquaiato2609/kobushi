@@ -1,12 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
-import type { ActivityKind, NotifyChannel, Period, TimeMode } from '../../api/types';
+import type { Activity, ActivityKind, NotifyChannel, Period, TimeMode } from '../../api/types';
 import { ChannelChecks } from '../../components/ChannelChecks';
 import { Icon } from '../../components/Icon';
 import { KIND_LABEL, PERIOD_LABEL, WEEKDAY_SHORT } from '../../lib/labels';
+import { toHHmm, windowFor } from '../../lib/schedule';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
 
@@ -14,12 +15,8 @@ type Props = NativeStackScreenProps<MoreStackParamList, 'NewActivity'>;
 type BlockRow = { startTime: string; endTime: string };
 type RemindMode = 'none' | 'fixed' | 'before';
 const REMIND_BEFORE_OPTIONS = [5, 10, 15, 30, 60] as const;
+const toRow = (b: { startTime: string; endTime: string | null }): BlockRow => ({ startTime: b.startTime, endTime: b.endTime ?? '' });
 
-/**
- * Versão reduzida do formulário do app web: um único conjunto de blocos de horário (sem horário
- * diferente por dia da semana) e sem o botão de sugestão de horário por IA. O resto (tipo, período,
- * níveis, lembrete, dias da semana) é igual.
- */
 export function NewActivityScreen({ navigation, route }: Props) {
   const a = route.params?.activity;
   const qc = useQueryClient();
@@ -28,7 +25,11 @@ export function NewActivityScreen({ navigation, route }: Props) {
   const [kind, setKind] = useState<ActivityKind>(a?.kind ?? 'goal');
   const [timeMode, setTimeMode] = useState<TimeMode>(a?.timeMode ?? 'free');
   const [period, setPeriod] = useState<Period>(a?.period ?? 'morning');
-  const [blocks, setBlocks] = useState<BlockRow[]>(a?.blocks.length ? a.blocks.map((b) => ({ startTime: b.startTime, endTime: b.endTime ?? '' })) : [{ startTime: '08:00', endTime: '' }]);
+  const [blocks, setBlocks] = useState<BlockRow[]>(a?.blocks.length ? a.blocks.map(toRow) : [{ startTime: '08:00', endTime: '' }]);
+  const [perDay, setPerDay] = useState((a?.weekdayBlocks.length ?? 0) > 0);
+  const [dayBlocks, setDayBlocks] = useState<Record<number, BlockRow[]>>(
+    Object.fromEntries((a?.weekdayBlocks ?? []).map((w) => [w.weekday, w.blocks.map(toRow)])),
+  );
   const [weekdays, setWeekdays] = useState<number[]>(a?.weekdays ?? [0, 1, 2, 3, 4, 5, 6]);
   const [purpose, setPurpose] = useState(a?.purpose ?? '');
   const [principle, setPrinciple] = useState(a?.principle ?? '');
@@ -45,6 +46,10 @@ export function NewActivityScreen({ navigation, route }: Props) {
   const [active, setActive] = useState(a?.active ?? true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [suggestBusy, setSuggestBusy] = useState(false);
+  const [suggestion, setSuggestion] = useState<{ start: string; reason: string } | null>(
+    a?.suggestedStart ? { start: a.suggestedStart, reason: a.suggestedReason } : null,
+  );
 
   const toggleDay = (d: number) => setWeekdays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d].sort()));
   const setBlock = (i: number, patch: Partial<BlockRow>) => setBlocks((prev) => prev.map((b, j) => (j === i ? { ...b, ...patch } : b)));
@@ -52,15 +57,21 @@ export function NewActivityScreen({ navigation, route }: Props) {
   const removeBlock = (i: number) => setBlocks((prev) => prev.filter((_, j) => j !== i));
   const flexible = timeMode !== 'fixed';
 
-  async function submit() {
-    if (!name.trim()) return setErr('Dê um nome à atividade.');
-    if (weekdays.length === 0) return setErr('Escolha pelo menos um dia da semana.');
-    setErr(null); setBusy(true);
-    const payload = {
+  const dayBlocksFor = (d: number) => dayBlocks[d] ?? blocks;
+  const setDayBlock = (d: number, i: number, patch: Partial<BlockRow>) =>
+    setDayBlocks((prev) => ({ ...prev, [d]: (prev[d] ?? blocks).map((b, j) => (j === i ? { ...b, ...patch } : b)) }));
+  const addDayBlock = (d: number) => setDayBlocks((prev) => ({ ...prev, [d]: [...(prev[d] ?? blocks), { startTime: '', endTime: '' }] }));
+  const removeDayBlock = (d: number, i: number) => setDayBlocks((prev) => ({ ...prev, [d]: (prev[d] ?? blocks).filter((_, j) => j !== i) }));
+  // se todo dia selecionado já tem horário próprio, o padrão não serve de reserva pra ninguém
+  const allDaysOverridden = perDay && weekdays.length > 0 && weekdays.every((d) => d in dayBlocks);
+
+  const toBlocks = (rows: BlockRow[]) => rows.filter((r) => r.startTime).map((r) => ({ startTime: r.startTime, endTime: r.endTime || null }));
+  function buildPayload() {
+    return {
       name: name.trim(), kind, timeMode,
       period: timeMode === 'period' ? period : null,
-      blocks: timeMode === 'fixed' ? blocks.filter((b) => b.startTime).map((b) => ({ startTime: b.startTime, endTime: b.endTime || null })) : [],
-      weekdayBlocks: [],
+      blocks: timeMode === 'fixed' ? toBlocks(blocks) : [],
+      weekdayBlocks: timeMode === 'fixed' && perDay ? weekdays.map((d) => ({ weekday: d, blocks: toBlocks(dayBlocksFor(d)) })) : [],
       purpose, principle, minDesc, idealDesc, maxDesc, weekdays, active,
       remindTime: remindMode === 'fixed' ? (remindTime || null) : null,
       remindMinutes: remindMode === 'before' ? remindBeforeMin : null,
@@ -69,9 +80,15 @@ export function NewActivityScreen({ navigation, route }: Props) {
       notAfter: flexible && notAfter ? notAfter : null,
       durationMin: Number(durationMin) || 60,
     };
+  }
+
+  async function submit() {
+    if (!name.trim()) return setErr('Dê um nome à atividade.');
+    if (weekdays.length === 0) return setErr('Escolha pelo menos um dia da semana.');
+    setErr(null); setBusy(true);
     try {
-      if (a) await api.patch(`/activities/${a.id}`, payload);
-      else await api.post('/activities', payload);
+      if (a) await api.patch(`/activities/${a.id}`, buildPayload());
+      else await api.post('/activities', buildPayload());
       await qc.invalidateQueries({ queryKey: ['activities'] });
       await qc.invalidateQueries({ queryKey: ['day'] });
       navigation.goBack();
@@ -81,6 +98,22 @@ export function NewActivityScreen({ navigation, route }: Props) {
       setBusy(false);
     }
   }
+
+  // Salva o que está na tela e pede o horário à IA, para a sugestão refletir o período e as restrições atuais.
+  async function suggestTime() {
+    if (!a) return;
+    setErr(null); setSuggestBusy(true);
+    try {
+      await api.patch<Activity>(`/activities/${a.id}`, buildPayload());
+      const updated = await api.post<Activity>(`/activities/${a.id}/suggest-time`, {});
+      setSuggestion(updated.suggestedStart ? { start: updated.suggestedStart, reason: updated.suggestedReason } : null);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Não consegui pedir a sugestão.');
+    } finally {
+      setSuggestBusy(false);
+    }
+  }
+  const slot = windowFor({ period: timeMode === 'period' ? period : null, notBefore: notBefore || null, notAfter: notAfter || null, durationMin: Number(durationMin) || 60 });
 
   function confirmDelete() {
     if (!a) return;
@@ -135,28 +168,65 @@ export function NewActivityScreen({ navigation, route }: Props) {
       )}
 
       {timeMode === 'fixed' && (
-        <View style={styles.block}>
-          <Text style={styles.fieldLegend}>Horário</Text>
-          {blocks.map((b, i) => (
-            <View key={i} style={styles.blockRow}>
-              <TextInput style={[styles.input, styles.timeInput]} value={b.startTime} onChangeText={(v) => setBlock(i, { startTime: v })} placeholder="08:00" />
-              <Text style={styles.dash}>–</Text>
-              <TextInput style={[styles.input, styles.timeInput]} value={b.endTime} onChangeText={(v) => setBlock(i, { endTime: v })} placeholder="fim (opc.)" />
-              <TouchableOpacity disabled={blocks.length === 1} onPress={() => removeBlock(i)} style={styles.removeBtn}>
-                <Icon name="trash" size={14} color={blocks.length === 1 ? colors.line : colors.danger} />
-              </TouchableOpacity>
-            </View>
-          ))}
-          <TouchableOpacity style={styles.addBtn} onPress={addBlock}>
-            <Icon name="plus" size={14} color={colors.accent} /><Text style={styles.addBtnText}>Adicionar bloco (ex.: manhã e tarde)</Text>
+        <>
+          <View style={styles.block}>
+            <Text style={styles.fieldLegend}>{perDay ? 'Horário padrão' : 'Horário'}</Text>
+            {blocks.map((b, i) => (
+              <View key={i} style={styles.blockRow}>
+                <TextInput style={[styles.input, styles.timeInput]} value={b.startTime} onChangeText={(v) => setBlock(i, { startTime: v })} placeholder="08:00" />
+                <Text style={styles.dash}>–</Text>
+                <TextInput style={[styles.input, styles.timeInput]} value={b.endTime} onChangeText={(v) => setBlock(i, { endTime: v })} placeholder="fim (opc.)" />
+                <TouchableOpacity disabled={blocks.length === 1} onPress={() => removeBlock(i)} style={styles.removeBtn}>
+                  <Icon name="trash" size={14} color={blocks.length === 1 ? colors.line : colors.danger} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.addBtn} onPress={addBlock}>
+              <Icon name="plus" size={14} color={colors.accent} /><Text style={styles.addBtnText}>Adicionar bloco (ex.: manhã e tarde)</Text>
+            </TouchableOpacity>
+            {allDaysOverridden && <Text style={styles.hint}>Todo dia selecionado já tem horário próprio abaixo — o padrão não é usado, pode deixar em branco.</Text>}
+          </View>
+
+          <TouchableOpacity style={styles.checkRow} onPress={() => setPerDay((v) => !v)}>
+            <Icon name={perDay ? 'check' : 'x'} size={16} color={perDay ? colors.ideal : colors.inkSoft} />
+            <Text style={styles.checkText}>Horário diferente em algum dia (ex.: academia só de manhã no fim de semana)</Text>
           </TouchableOpacity>
-        </View>
+
+          {perDay && (
+            <View style={styles.block}>
+              <Text style={styles.fieldLegend}>Horário de cada dia</Text>
+              {weekdays.map((d) => (
+                <View key={d} style={styles.dayBlockGroup}>
+                  <Text style={styles.dayBlockLabel}>{WEEKDAY_SHORT[d]}</Text>
+                  <View style={{ flex: 1 }}>
+                    {dayBlocksFor(d).map((b, i) => (
+                      <View key={i} style={styles.blockRow}>
+                        <TextInput style={[styles.input, styles.timeInput]} value={b.startTime} onChangeText={(v) => setDayBlock(d, i, { startTime: v })} placeholder="08:00" />
+                        <Text style={styles.dash}>–</Text>
+                        <TextInput style={[styles.input, styles.timeInput]} value={b.endTime} onChangeText={(v) => setDayBlock(d, i, { endTime: v })} placeholder="fim (opc.)" />
+                        <TouchableOpacity disabled={dayBlocksFor(d).length === 1} onPress={() => removeDayBlock(d, i)} style={styles.removeBtn}>
+                          <Icon name="trash" size={14} color={dayBlocksFor(d).length === 1 ? colors.line : colors.danger} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.addBtn} onPress={() => addDayBlock(d)}>
+                      <Icon name="plus" size={14} color={colors.accent} /><Text style={styles.addBtnText}>Bloco</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))}
+              <Text style={styles.hint}>Cada dia selecionado abaixo tem seus próprios blocos; mude os dias ali que a lista se ajusta.</Text>
+            </View>
+          )}
+        </>
       )}
 
       {flexible && (
         <View style={styles.block}>
           <Text style={styles.fieldLegend}>Horário no calendário</Text>
-          <Text style={styles.hint}>O calendário encaixa esta atividade num horário livre, sem sobrepor obrigações e eventos.</Text>
+          <Text style={styles.hint}>
+            {timeMode === 'period' ? 'O calendário encaixa este objetivo dentro do período escolhido' : 'O calendário encaixa este objetivo em um horário livre do dia'}, sem sobrepor obrigações e eventos.
+          </Text>
           <Text style={styles.label}>Duração (min)</Text>
           <TextInput style={styles.input} value={durationMin} onChangeText={setDurationMin} keyboardType="number-pad" />
           <View style={styles.row2}>
@@ -169,6 +239,23 @@ export function NewActivityScreen({ navigation, route }: Props) {
               <TextInput style={styles.input} value={notAfter} onChangeText={setNotAfter} placeholder="opcional" />
             </View>
           </View>
+          {!slot && <Text style={styles.error}>Não cabe: confira o período, "depois das" e "antes das".</Text>}
+          {slot && <Text style={styles.hint}>Pode começar entre {toHHmm(slot[0])} e {toHHmm(Math.max(slot[0], slot[1] - (Number(durationMin) || 60)))}.</Text>}
+          {suggestion && (
+            <View style={styles.suggestionBox}>
+              <Icon name="sparkles" size={14} color={colors.accent} />
+              <Text style={styles.suggestionText}>A IA sugere <Text style={{ fontWeight: '700' }}>{suggestion.start}</Text>{suggestion.reason ? `. ${suggestion.reason}` : ''}</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={[styles.secondaryBtn, (!a || !slot || suggestBusy || busy) && styles.submitDisabled]}
+            disabled={!a || !slot || suggestBusy || busy}
+            onPress={() => void suggestTime()}
+          >
+            {suggestBusy ? <ActivityIndicator size="small" color={colors.accent} /> : <Icon name="sparkles" size={14} color={colors.accent} />}
+            <Text style={styles.secondaryBtnText}>{suggestBusy ? 'Consultando a IA…' : suggestion ? 'Sugerir outro horário com IA' : 'Sugerir melhor horário com IA'}</Text>
+          </TouchableOpacity>
+          {!a && <Text style={styles.hint}>Salve a atividade primeiro para usar a IA.</Text>}
         </View>
       )}
 
@@ -271,4 +358,10 @@ const styles = StyleSheet.create({
   submitText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   deleteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: spacing.md, paddingVertical: 10 },
   deleteText: { color: colors.danger, fontWeight: '700', fontSize: 14 },
+  dayBlockGroup: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start', marginTop: spacing.xs },
+  dayBlockLabel: { fontSize: 11, fontWeight: '700', color: colors.inkSoft, minWidth: 30, paddingTop: 10 },
+  suggestionBox: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accentTint, borderRadius: 10, padding: spacing.sm, marginTop: spacing.xs },
+  suggestionText: { fontSize: 12, color: colors.ink, flex: 1 },
+  secondaryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderColor: colors.accent, borderRadius: 10, paddingVertical: 10, marginTop: spacing.sm },
+  secondaryBtnText: { fontSize: 13, color: colors.accent, fontWeight: '700' },
 });

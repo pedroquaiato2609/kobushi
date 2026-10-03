@@ -3,7 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
-import type { Commute, DayPlan, DayPlanItem, Level } from '../../api/types';
+import type { CalendarEvent, Commute, DayPlan, DayPlanItem, Level } from '../../api/types';
 import { Icon } from '../../components/Icon';
 import { QueryError } from '../../components/QueryError';
 import { addDaysIso, dayHeading, todayISO } from '../../lib/dates';
@@ -14,7 +14,7 @@ import type { MoreStackParamList } from '../../navigation/MoreStack';
 
 type Props = NativeStackScreenProps<MoreStackParamList, 'Agenda'>;
 
-interface Row { key: string; sortKey: number; time: string | null; title: string; detail: string; kind: 'activity' | 'commute' | 'event'; activity?: DayPlanItem }
+interface Row { key: string; sortKey: number; time: string | null; title: string; detail: string; kind: 'activity' | 'commute' | 'event'; activity?: DayPlanItem; event?: CalendarEvent }
 
 /**
  * Agenda do dia em formato de lista (não a grade visual de horários do app web — essa exigiria um
@@ -29,7 +29,7 @@ export function AgendaScreen({ navigation }: Props) {
   const plan = useQuery({ queryKey: ['day', date], queryFn: () => api.get<DayPlan>(`/day?date=${date}`) });
   const events = useQuery({
     queryKey: ['events', date],
-    queryFn: () => api.get<{ id: string; title: string; description: string; start: string; end: string; location: string }[]>(`/events?from=${date}T00:00&to=${date}T23:59`),
+    queryFn: () => api.get<CalendarEvent[]>(`/events?from=${date}T00:00&to=${date}T23:59`),
   });
   const commutes = useQuery({ queryKey: ['commutes'], queryFn: () => api.get<Commute[]>('/commutes') });
 
@@ -59,7 +59,7 @@ export function AgendaScreen({ navigation }: Props) {
     }
     for (const e of events.data ?? []) {
       const time = e.start.slice(11, 16);
-      out.push({ key: `e-${e.id}`, sortKey: toMin(time), time, title: e.title, detail: e.location ? `Evento · ${e.location}` : 'Evento', kind: 'event' });
+      out.push({ key: `e-${e.id}`, sortKey: toMin(time), time, title: e.title, detail: e.location ? `Evento · ${e.location}` : 'Evento', kind: 'event', event: e });
     }
     return out.sort((a, b) => a.sortKey - b.sortKey);
   }, [items, itemsById, commutes.data, events.data, weekday]);
@@ -90,30 +90,38 @@ export function AgendaScreen({ navigation }: Props) {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {rows.length === 0 && <Text style={styles.empty}>Nada marcado para este dia.</Text>}
-          {rows.map((r) => (
-            <View key={r.key} style={styles.row}>
-              <View style={styles.timeCol}><Text style={styles.timeText}>{r.time ?? '—'}</Text></View>
-              <View style={[styles.bar, r.kind === 'commute' && styles.barCommute, r.kind === 'event' && styles.barEvent]} />
-              <View style={styles.main}>
-                <Text style={styles.title}>{r.title}</Text>
-                <Text style={styles.detail}>{r.detail}</Text>
-                {r.kind === 'activity' && r.activity && r.activity.active && (
-                  <View style={styles.levelRow}>
-                    {LEVELS.map((l) => (
-                      <TouchableOpacity key={l} style={[styles.levelChip, r.activity!.executionLevel === l && styles.levelChipOn]} onPress={() => void setLevel(r.activity!.id, r.activity!.executionLevel === l ? null : l)}>
-                        <Text style={[styles.levelChipText, r.activity!.executionLevel === l && styles.levelChipTextOn]}>{LEVEL_LABEL[l]}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            </View>
-          ))}
+          {rows.map((r) => {
+            const Wrap = r.kind === 'event' ? TouchableOpacity : View;
+            return (
+              <Wrap key={r.key} style={styles.row} {...(r.kind === 'event' ? { onPress: () => navigation.navigate('NewEvent', { event: r.event }) } : {})}>
+                <View style={styles.timeCol}><Text style={styles.timeText}>{r.time ?? '—'}</Text></View>
+                <View style={[styles.bar, r.kind === 'commute' && styles.barCommute, r.kind === 'event' && styles.barEvent]} />
+                <View style={styles.main}>
+                  <Text style={styles.title}>{r.title}</Text>
+                  <Text style={styles.detail}>{r.detail}</Text>
+                  {r.kind === 'activity' && r.activity && r.activity.active && (
+                    <View style={styles.levelRow}>
+                      {LEVELS.map((l) => (
+                        <TouchableOpacity key={l} style={[styles.levelChip, r.activity!.executionLevel === l && styles.levelChipOn]} onPress={() => void setLevel(r.activity!.id, r.activity!.executionLevel === l ? null : l)}>
+                          <Text style={[styles.levelChipText, r.activity!.executionLevel === l && styles.levelChipTextOn]}>{LEVEL_LABEL[l]}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+                {r.kind === 'event' && <Icon name="right" size={14} color={colors.inkSoft} />}
+              </Wrap>
+            );
+          })}
         </ScrollView>
       )}
 
       <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('Activities')}>
         <Text style={styles.linkText}>Ver/editar todas as atividades →</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate('NewEvent', { initialStart: `${date}T09:00` })}>
+        <Icon name="plus" size={22} color="#fff" />
       </TouchableOpacity>
     </View>
   );
@@ -144,4 +152,5 @@ const styles = StyleSheet.create({
   levelChipTextOn: { color: '#fff' },
   linkBtn: { padding: spacing.md, alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.line, backgroundColor: colors.surface },
   linkText: { color: colors.accent, fontWeight: '700', fontSize: 13 },
+  fab: { position: 'absolute', right: spacing.lg, bottom: spacing.xl * 2, width: 52, height: 52, borderRadius: 999, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center', elevation: 4 },
 });

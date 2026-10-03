@@ -9,14 +9,16 @@ type Props = NativeStackScreenProps<MoreStackParamList, 'Settings'>;
 /**
  * Hub de configurações — o app web usa uma barra de abas horizontal (Agente, Assistente, Voz, Perfil,
  * Notificações, Permissões, Segurança, Histórico); aqui vira uma lista de atalhos, mais natural pro
- * celular. Portado por enquanto: Conta (dados, senha, dispositivos), Cofre & Perfil (as informações que
- * a IA usa, com os 3 níveis de confidencialidade) e Notificações. Agente/Assistente/Voz/Permissões/
- * Histórico ainda não têm tela própria aqui — ver README.
+ * celular. Voz/ditado fica de fora (o mobile não tem ditado por voz); todo o resto tem tela própria.
  */
 const ITEMS: { to: keyof MoreStackParamList; icon: IconName; label: string; hint: string }[] = [
-  { to: 'Account', icon: 'settings', label: 'Conta', hint: 'Seus dados, trocar senha, dispositivos conectados' },
+  { to: 'Account', icon: 'settings', label: 'Conta', hint: 'Seus dados, trocar senha, dispositivos conectados, exportar/apagar dados' },
   { to: 'VaultProfile', icon: 'lock', label: 'Cofre & Perfil', hint: 'O que a IA sabe sobre você, protegido pela senha do Cofre' },
   { to: 'NotificationsSettings', icon: 'bell', label: 'Notificações', hint: 'Sino do app, celular e WhatsApp' },
+  { to: 'AgentSettings', icon: 'sparkles', label: 'Agente', hint: 'Provedor, modelo, instruções e idioma do assistente' },
+  { to: 'AssistantProactive', icon: 'target', label: 'Assistente proativo', hint: 'Sugestões automáticas, silêncio e revisões' },
+  { to: 'Permissions', icon: 'shield', label: 'Permissões', hint: 'O que o agente pode fazer sozinho, ferramenta por ferramenta' },
+  { to: 'ActionHistory', icon: 'clock', label: 'Histórico de ações', hint: 'Tudo que o agente já executou' },
 ];
 
 export function SettingsScreen({ navigation }: Props) {

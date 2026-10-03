@@ -8,6 +8,7 @@ import { colors, radius, spacing } from '../theme';
 type Props = NativeStackScreenProps<MoreStackParamList, 'MoreMenu'>;
 
 const ITEMS: { to: keyof MoreStackParamList; icon: IconName; label: string; hint: string }[] = [
+  { to: 'Stats', icon: 'chart', label: 'Dashboard', hint: 'Como seus dias têm sido, meditação e revisão do dia' },
   { to: 'Agenda', icon: 'calendar', label: 'Agenda', hint: 'O que tem pra hoje: atividades, eventos e deslocamentos' },
   { to: 'Activities', icon: 'target', label: 'Atividades', hint: 'Sua rotina: obrigações, objetivos e níveis' },
   { to: 'Reminders', icon: 'bell', label: 'Lembretes', hint: 'Tudo o que vai te avisar' },

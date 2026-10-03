@@ -61,7 +61,7 @@ export function RemindersScreen({ navigation }: Props) {
     if (i.kind === 'reminder') navigation.navigate('NewReminder', { reminder: i.reminder });
     else if (i.kind === 'activity') navigation.navigate('NewActivity', { activity: i.activity });
     else if (i.kind === 'commute') navigation.navigate('NewCommute', { commute: i.commute });
-    // eventos: edição ainda não existe no mobile (ver README) — toque não faz nada.
+    else if (i.kind === 'event') navigation.navigate('NewEvent', { event: i.event });
   }
 
   return (
@@ -85,7 +85,7 @@ export function RemindersScreen({ navigation }: Props) {
             <View key={g.title} style={{ gap: spacing.sm }}>
               <Text style={styles.groupTitle}>{g.title}</Text>
               {g.items.map((i) => (
-                <TouchableOpacity key={i.key} style={styles.row} onPress={() => open(i)} disabled={i.kind === 'event'}>
+                <TouchableOpacity key={i.key} style={styles.row} onPress={() => open(i)}>
                   <Text style={styles.time}>{i.at.slice(11)}</Text>
                   <View style={styles.main}>
                     <Text style={styles.title}>{i.title}</Text>

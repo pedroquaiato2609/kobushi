@@ -11,6 +11,7 @@ export const RESOURCE_LABEL: Record<string, string> = {
 export const ACTION_LABEL: Record<string, string> = { create: 'Criar', update: 'Atualizar', delete: 'Apagar' };
 
 export const KIND_LABEL: Record<ActivityKind, string> = { obligation: 'Obrigação', goal: 'Objetivo', special: 'Objetivo especial (meditação)' };
+export const KIND_GROUP: Record<ActivityKind, string> = { obligation: 'Obrigações', goal: 'Objetivos', special: 'Meditação' };
 export const DIRECTION_LABEL: Record<CommuteDirection, string> = { before: 'Ida (antes da atividade)', after: 'Volta (depois da atividade)' };
 export const PERIOD_LABEL: Record<Period, string> = { morning: 'Manhã', afternoon: 'Tarde', night: 'Noite' };
 export const LEVEL_LABEL: Record<Level, string> = { min: 'Mínimo', ideal: 'Ideal', max: 'Máximo' };
@@ -18,6 +19,10 @@ export const LEVELS: Level[] = ['min', 'ideal', 'max'];
 export const WEEKDAY_SHORT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 export const CHANNEL_LABEL: Record<NotifyChannel, string> = { push: 'Notificação no celular', whatsapp: 'WhatsApp' };
 export const REPEAT_LABEL: Record<Repeat, string> = { none: 'Não repetir', daily: 'Todo dia', weekly: 'Toda semana' };
+export const STATUS_LABEL: Record<string, string> = {
+  pending: 'Aguardando aprovação', executed: 'Executada', denied: 'Negada', rejected: 'Rejeitada', error: 'Erro',
+};
+export const humanizeTool = (name: string) => name.replace(/_/g, ' ');
 export const LEVEL_PROFILE = {
   general: { name: 'Geral', hint: 'A IA vê em toda conversa. Ex.: nome, alergias, preferências.' },
   private: { name: 'Privado', hint: 'A IA só lê se você aprovar cada vez. Ex.: plano de saúde, endereço.' },
