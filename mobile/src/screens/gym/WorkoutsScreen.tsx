@@ -31,6 +31,15 @@ export function WorkoutsScreen({ navigation }: Props) {
   }
 
   if (active.isLoading) return <View style={[styles.center, { paddingTop: insets.top }]}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (active.error) {
+    return (
+      <View style={[styles.center, { paddingTop: insets.top, gap: spacing.sm }]}>
+        <Text style={styles.errorTitle}>Não consegui carregar a Academia</Text>
+        {active.error instanceof Error && <Text style={styles.errorDetail}>{active.error.message}</Text>}
+        <TouchableOpacity style={styles.retryBtn} onPress={() => void active.refetch()}><Text style={styles.retryText}>Tentar de novo</Text></TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <ScrollView
@@ -95,6 +104,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.paper },
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
   center: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center' },
+  errorTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  errorDetail: { fontSize: 12, color: colors.inkSoft, textAlign: 'center' },
+  retryBtn: { marginTop: spacing.sm, backgroundColor: colors.accent, paddingVertical: 10, paddingHorizontal: spacing.lg, borderRadius: 10 },
+  retryText: { color: '#fff', fontWeight: '700' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
   header: { fontSize: 24, fontWeight: '700', color: colors.ink },
   newBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accent, borderRadius: 8, paddingVertical: 6, paddingHorizontal: spacing.sm },

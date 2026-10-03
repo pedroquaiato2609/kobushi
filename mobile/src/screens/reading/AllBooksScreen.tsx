@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { Book, BookStatus } from '../../api/types';
+import { QueryError } from '../../components/QueryError';
 import { progressPct, STATUS_LABEL, STATUS_ORDER } from '../../lib/reading';
 import { colors, radius, spacing } from '../../theme';
 import type { ReadingStackParamList } from '../../navigation/ReadingStack';
@@ -32,6 +33,8 @@ export function AllBooksScreen({ navigation }: Props) {
 
       {books.isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
+      ) : books.error ? (
+        <QueryError error={books.error} onRetry={() => void books.refetch()} />
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {(books.data ?? []).length === 0 ? (

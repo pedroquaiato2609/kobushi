@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { Commute, DayPlan, DayPlanItem, Level } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { addDaysIso, dayHeading, todayISO } from '../../lib/dates';
 import { KIND_LABEL, LEVEL_LABEL, LEVELS } from '../../lib/labels';
 import { PERIOD_WINDOW, commuteBlock, effectiveBlocks, toMin } from '../../lib/schedule';
@@ -84,6 +85,8 @@ export function AgendaScreen({ navigation }: Props) {
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
+      ) : plan.error ? (
+        <QueryError error={plan.error} onRetry={() => void plan.refetch()} />
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {rows.length === 0 && <Text style={styles.empty}>Nada marcado para este dia.</Text>}

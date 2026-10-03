@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { api } from '../../api/client';
 import type { GymActive, GymExercise, GymPlanItem } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { estimate1rm, EQUIPMENT_LABEL, fmtClock, fmtKg, MUSCLE_LABEL } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
@@ -167,6 +168,7 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
   const [finishing, setFinishing] = useState(false);
 
   if (active.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (active.error) return <QueryError error={active.error} onRetry={() => void active.refetch()} />;
   if (!active.data) {
     return (
       <View style={styles.center}>

@@ -36,6 +36,7 @@ export function ReadingScreen({ navigation }: Props) {
     return (
       <View style={[styles.center, { paddingTop: insets.top }]}>
         <Text style={styles.errorTitle}>Não consegui carregar sua estante</Text>
+        {overview.error instanceof Error && <Text style={styles.errorDetail}>{overview.error.message}</Text>}
         <TouchableOpacity style={styles.retryBtn} onPress={() => void overview.refetch()}><Text style={styles.retryText}>Tentar de novo</Text></TouchableOpacity>
       </View>
     );
@@ -88,6 +89,7 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xl * 2, gap: spacing.sm },
   center: { flex: 1, backgroundColor: colors.paper, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.sm },
   errorTitle: { fontSize: 16, fontWeight: '700', color: colors.ink },
+  errorDetail: { fontSize: 12, color: colors.inkSoft, textAlign: 'center' },
   retryBtn: { marginTop: spacing.sm, backgroundColor: colors.accent, paddingVertical: 10, paddingHorizontal: spacing.lg, borderRadius: 10 },
   retryText: { color: '#fff', fontWeight: '700' },
   headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },

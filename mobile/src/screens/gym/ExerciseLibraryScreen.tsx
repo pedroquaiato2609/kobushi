@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { GymExercise } from '../../api/types';
+import { QueryError } from '../../components/QueryError';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
@@ -24,6 +25,8 @@ export function ExerciseLibraryScreen({ navigation }: Props) {
       <TextInput style={styles.search} value={q} onChangeText={setQ} placeholder="Buscar exercício" />
       {exercises.isLoading ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+      ) : exercises.error ? (
+        <QueryError error={exercises.error} onRetry={() => void exercises.refetch()} />
       ) : (
         <FlatList
           data={list} keyExtractor={(e) => e.id} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}

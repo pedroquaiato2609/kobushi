@@ -46,11 +46,41 @@ async function fail(res: Response): Promise<never> {
   throw new ApiError(res.status, message, code);
 }
 
+const REQUEST_TIMEOUT_MS = 15_000;
+
+/**
+ * Sem isso, uma chamada que trava (rede ruim, servidor que não responde) deixa a tela girando pra
+ * sempre, sem erro nenhum pra mostrar — foi exatamente o que aconteceu num aparelho real: a tela ficava
+ * "carregando" indefinidamente. Com o timeout, em 15s vira um erro de verdade, com o método e a rota na
+ * mensagem, que as telas conseguem mostrar (em vez de ficar girando sem dizer por quê).
+ *
+ * Usa `Promise.race` em vez de só `AbortController`/`signal`: testado, o `AbortController` sozinho NÃO
+ * é suficiente aqui — se o `fetch` do ambiente ignora `signal` (visto no preview web; não dá pra garantir
+ * que toda versão de Android trata isso direito também), `controller.abort()` não cancela nada e a
+ * chamada trava do mesmo jeito. Com a corrida contra o cronômetro, a tela para de esperar em 15s de
+ * qualquer forma — na pior hipótese a requisição de rede continua tentando sozinha em segundo plano,
+ * mas o app não fica mais preso esperando por ela.
+ */
 async function request<T>(method: string, path: string, body?: unknown, extraHeaders?: Record<string, string>): Promise<T> {
   const headers: Record<string, string> = { ...extraHeaders };
   if (body !== undefined) headers['content-type'] = 'application/json';
   if (token) headers.cookie = `${COOKIE_NAME}=${encodeURIComponent(token)}`;
-  const res = await fetch(`${API_BASE_URL}${path}`, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new ApiError(0, `Tempo esgotado (${REQUEST_TIMEOUT_MS / 1000}s): ${method} ${path}`)), REQUEST_TIMEOUT_MS);
+  });
+  let res: Response;
+  try {
+    res = await Promise.race([
+      fetch(`${API_BASE_URL}${path}`, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined }),
+      timeout,
+    ]);
+  } catch (e) {
+    if (e instanceof ApiError) throw e; // já é o erro de timeout acima, com a mensagem certa
+    throw new ApiError(0, `Não consegui conectar: ${method} ${path} — ${e instanceof Error ? e.message : String(e)}`);
+  } finally {
+    clearTimeout(timer!); // o fetch já resolveu/rejeitou — não precisa mais do cronômetro rodando
+  }
   if (!res.ok) return fail(res);
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }

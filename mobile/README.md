@@ -222,27 +222,47 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       - **Kanban**: quadros, colunas, cards (mover de coluna sem arrastar, pelo detalhe)
       - **Documentos**: notas, listas (checklist) e arquivos em pastas, com busca
 
-## Bug de navegação entre abas: ainda NÃO resolvido (histórico, pra não repetir a mesma tentativa)
+## "Trocar de aba não carrega" — achada a causa real (não era navegação)
 
-Sintoma: trocar de aba às vezes não troca o conteúdo (ou trava, ou fica muito lento) —
-já apareceu tanto no preview web quanto num APK de verdade, em graus diferentes.
+Histórico, porque as duas primeiras tentativas investigaram a coisa errada:
 
-**1ª tentativa** (nesta sessão): suspeitei de um bug conhecido do `react-native-screens`
-específico de build de release
-([software-mansion/react-native-screens#4649](https://github.com/software-mansion/react-native-screens/issues/4649))
-e tentei corrigir com `detachInactiveScreens={false}` no `Tab.Navigator`. **Piorou**: num
-aparelho de verdade, isso deixou várias abas sem carregar e o app geral mais lento — manter
-as 5 pilhas de navegação montadas o tempo todo (cada uma com várias telas) pesa demais;
-revertido pro padrão da biblioteca.
+**1ª tentativa**: suspeitei de um bug do `react-native-screens` específico de build de
+release ([software-mansion/react-native-screens#4649](https://github.com/software-mansion/react-native-screens/issues/4649))
+e tentei corrigir com `detachInactiveScreens={false}`. Piorou num aparelho de verdade
+(várias abas paravam de carregar, app mais lento) — revertido pro padrão da biblioteca.
 
-**Hipótese ainda não testada**: pode ser um bug diferente, já corrigido oficialmente em
-`@react-navigation/bottom-tabs` (um padrão envolvendo `Animated` no driver nativo pra
-derivar o estado de "aba ativa", removido em julho de 2026) — mas a versão instalada aqui
-(`7.20.0`, a mais recente estável) já devia ter essa correção, então pode não ser a causa.
-Não decidi se é mesmo o mesmo bug relatado em
-[react-navigation/react-navigation#12755](https://github.com/react-navigation/react-navigation/issues/12755)
-ou outra coisa — próximo passo é investigar com mais calma (reproduzir de forma isolada,
-log de erro de verdade do aparelho) em vez de aplicar outra correção não verificada.
+**2ª tentativa**: suspeita de um bug diferente, já corrigido oficialmente em versões
+recentes do `@react-navigation/bottom-tabs` — descartada ao confirmar que a versão aqui
+(`7.20.0`) já era a mais recente estável.
+
+**Causa real, confirmada com reprodução isolada** (interceptando a chamada de rede via
+Puppeteer e cronometrando): a aba trocava **certinho** — o sintoma "ícone fica roxo e
+fica girando pra sempre" era uma chamada à API que **nunca recebia resposta nem erro**,
+deixando `isLoading` travado em `true` pro resto da vida da tela. Não era bug de
+navegação nenhum. A suspeita mais forte do que causava a chamada travar: o registro de
+notificação push (`registerForPushNotifications`, novo nesta sessão), que faz uma
+chamada ao serviço do Google pra gerar o token — e um projeto Firebase recém-criado pode
+demorar muito ou nunca responder nessa primeira chamada.
+
+**Correção, em 3 partes, cada uma confirmada com reprodução isolada antes de buildar**:
+1. `src/api/client.ts`: toda chamada da API agora tem um limite de **15s** — usa
+   `Promise.race` contra um cronômetro, não só `AbortController`/`signal` (testado: o
+   `fetch` do preview web **ignora** `signal`, então só abortar não bastava; com a
+   corrida contra o relógio, a tela para de esperar de qualquer jeito, mesmo que a
+   requisição de rede continue tentando sozinha por trás)
+2. `src/lib/notifications.ts`: cada passo do registro de push (criar canal, checar/pedir
+   permissão, gerar o token) tem seu próprio limite de tempo — nunca mais trava o app
+   esperando o Google responder
+3. `App.tsx`: o `QueryClient` não tenta de novo automaticamente quando o erro já foi um
+   timeout/falha de conexão (`retry` virou uma função) — com o `retry: 1` antigo, um
+   timeout de 15s virava 30s de espera (a 2ª tentativa também demorava 15s) antes do
+   erro aparecer
+
+E, pra TODA tela que faz uma consulta (eram ~17 sem nenhum tratamento de erro — um
+problema à parte, achado nessa investigação): `src/components/QueryError.tsx`, mostrado
+sempre que uma consulta falha, com a mensagem de erro de verdade (ex.: "Tempo esgotado
+(15s): GET /gym/sessions/active") e um botão de tentar de novo, em vez de ficar girando
+pra sempre sem dizer por quê.
 
 ## Próximos passos
 

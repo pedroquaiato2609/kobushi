@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { api } from '../../api/client';
 import type { Board, BoardFull } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
 
@@ -62,6 +63,7 @@ export function KanbanScreen({ navigation }: Props) {
   }
 
   if (boards.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (boards.error) return <QueryError error={boards.error} onRetry={() => void boards.refetch()} />;
 
   return (
     <View style={styles.screen}>

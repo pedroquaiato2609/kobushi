@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { Activity, Commute } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { DIRECTION_LABEL } from '../../lib/labels';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
@@ -16,6 +17,7 @@ export function CommutesScreen({ navigation }: Props) {
   const activityName = (id: string) => activities.data?.find((a) => a.id === id)?.name ?? '—';
 
   if (commutes.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (commutes.error) return <QueryError error={commutes.error} onRetry={() => void commutes.refetch()} />;
   const list = commutes.data ?? [];
   const hasFixedActivity = (activities.data ?? []).some((a) => a.timeMode === 'fixed' && a.active);
 

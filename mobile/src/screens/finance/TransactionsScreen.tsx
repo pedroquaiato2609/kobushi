@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { FinTransaction } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { dm } from '../../lib/dates';
 import { brl } from '../../lib/money';
 import { colors, radius, spacing } from '../../theme';
@@ -37,6 +38,8 @@ export function TransactionsScreen({ navigation }: Props) {
 
       {txs.isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
+      ) : txs.error ? (
+        <QueryError error={txs.error} onRetry={() => void txs.refetch()} />
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {(txs.data ?? []).length === 0 ? (

@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { FinOverview } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { brl } from '../../lib/money';
 import { colors, radius, spacing } from '../../theme';
 import type { FinanceStackParamList } from '../../navigation/FinanceStack';
@@ -15,6 +16,7 @@ export function AccountsScreen({ navigation }: Props) {
   const overview = useQuery({ queryKey: ['fin-overview'], queryFn: () => api.get<FinOverview>('/finance/overview') });
 
   if (overview.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (overview.error) return <QueryError error={overview.error} onRetry={() => void overview.refetch()} />;
   const accounts = (overview.data?.accounts ?? []).filter((a) => !a.archived);
 
   return (

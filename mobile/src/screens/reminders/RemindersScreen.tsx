@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacit
 import { api } from '../../api/client';
 import type { Activity, CalendarEvent, Commute, Reminder } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { addDaysIso, dayHeading, todayISO } from '../../lib/dates';
 import { CHANNEL_LABEL } from '../../lib/labels';
 import { type ReminderItem, type ReminderKind, upcomingReminders } from '../../lib/reminders';
@@ -75,6 +76,8 @@ export function RemindersScreen({ navigation }: Props) {
 
       {loading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
+      ) : reminders.error ?? activities.error ?? commutes.error ? (
+        <QueryError error={reminders.error ?? activities.error ?? commutes.error} onRetry={() => { void reminders.refetch(); void activities.refetch(); void commutes.refetch(); }} />
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {list.length === 0 && <Text style={styles.empty}>Nenhum lembrete por aqui.</Text>}

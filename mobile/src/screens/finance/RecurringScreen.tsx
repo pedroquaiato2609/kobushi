@@ -4,6 +4,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { FinRecurring } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { dm } from '../../lib/dates';
 import { brl } from '../../lib/money';
 import { colors, radius, spacing } from '../../theme';
@@ -53,6 +54,7 @@ export function RecurringScreen({ navigation }: Props) {
   }
 
   if (list.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (list.error) return <QueryError error={list.error} onRetry={() => void list.refetch()} />;
   const incomes = (list.data ?? []).filter((r) => r.kind === 'income');
   const expenses = (list.data ?? []).filter((r) => r.kind === 'expense');
 

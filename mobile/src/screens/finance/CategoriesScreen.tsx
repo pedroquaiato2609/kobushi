@@ -4,6 +4,7 @@ import { Alert, ScrollView, ActivityIndicator, StyleSheet, Text, TouchableOpacit
 import { api } from '../../api/client';
 import type { FinCategory, FinRefs } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { colors, radius, spacing } from '../../theme';
 import type { FinanceStackParamList } from '../../navigation/FinanceStack';
 
@@ -27,6 +28,7 @@ export function CategoriesScreen({ navigation }: Props) {
   }
 
   if (refs.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (refs.error) return <QueryError error={refs.error} onRetry={() => void refs.refetch()} />;
   const categories = refs.data?.categories ?? [];
 
   return (

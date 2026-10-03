@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOp
 import { api } from '../../api/client';
 import type { StudyFolder, StudyNote, StudyPlan } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
 
@@ -68,7 +69,9 @@ export function StudyScreen({ navigation }: Props) {
               <TouchableOpacity style={styles.smallBtn} onPress={() => void createFolder()}><Text style={styles.smallBtnText}>Criar</Text></TouchableOpacity>
             </View>
           )}
-          {notes.isLoading ? <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: spacing.lg }} /> : (
+          {notes.isLoading ? <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: spacing.lg }} /> : notes.error ? (
+            <QueryError error={notes.error} onRetry={() => void notes.refetch()} />
+          ) : (
             <ScrollView contentContainerStyle={styles.content}>
               {(notes.data ?? []).length === 0 && <Text style={styles.empty}>Nenhuma nota ainda.</Text>}
               {(notes.data ?? []).map((n) => (
@@ -103,7 +106,9 @@ export function StudyScreen({ navigation }: Props) {
               <Icon name="plus" size={14} color={colors.accent} /><Text style={styles.addPlanBtnText}>Novo plano de estudo</Text>
             </TouchableOpacity>
           )}
-          {plans.isLoading ? <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: spacing.lg }} /> : (
+          {plans.isLoading ? <ActivityIndicator size="large" color={colors.accent} style={{ marginTop: spacing.lg }} /> : plans.error ? (
+            <QueryError error={plans.error} onRetry={() => void plans.refetch()} />
+          ) : (
             <ScrollView contentContainerStyle={styles.content}>
               {(plans.data ?? []).length === 0 && <Text style={styles.empty}>Nenhum plano ainda.</Text>}
               {(plans.data ?? []).map((p) => (

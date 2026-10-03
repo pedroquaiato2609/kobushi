@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpac
 import { api } from '../../api/client';
 import type { GymExercise } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { EQUIPMENT_LABEL, MUSCLE_LABEL } from '../../lib/gym';
 import { colors, radius, spacing } from '../../theme';
 import type { GymStackParamList } from '../../navigation/GymStack';
@@ -26,6 +27,8 @@ export function ExercisePickerScreen({ route, navigation }: Props) {
       <TextInput style={styles.search} value={q} onChangeText={setQ} placeholder="Buscar exercício" autoFocus />
       {exercises.isLoading ? (
         <ActivityIndicator color={colors.accent} style={{ marginTop: spacing.xl }} />
+      ) : exercises.error ? (
+        <QueryError error={exercises.error} onRetry={() => void exercises.refetch()} />
       ) : (
         <FlatList
           data={list} keyExtractor={(e) => e.id} contentContainerStyle={{ padding: spacing.lg, gap: spacing.sm }}

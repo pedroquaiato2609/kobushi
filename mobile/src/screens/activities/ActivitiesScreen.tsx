@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { api } from '../../api/client';
 import type { Activity, ActivityKind, DayPlan, Level } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { KIND_LABEL, LEVEL_LABEL, LEVELS, WEEKDAY_SHORT, timeLabel } from '../../lib/labels';
 import { todayISO } from '../../lib/dates';
 import { colors, radius, spacing } from '../../theme';
@@ -56,6 +57,7 @@ export function ActivitiesScreen({ navigation }: Props) {
   }
 
   if (activities.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (activities.error) return <QueryError title="Não consegui carregar as atividades" error={activities.error} onRetry={() => void activities.refetch()} />;
 
   return (
     <View style={styles.screen}>

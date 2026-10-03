@@ -5,6 +5,7 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOp
 import { api } from '../../api/client';
 import type { DocKind, DocListItem, Folder } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
 
@@ -79,6 +80,8 @@ export function DocumentsScreen({ navigation }: Props) {
 
       {docs.isLoading ? (
         <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>
+      ) : docs.error ? (
+        <QueryError error={docs.error} onRetry={() => void docs.refetch()} />
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           {list.length === 0 && <Text style={styles.empty}>{q ? 'Nada encontrado.' : 'Nada aqui ainda.'}</Text>}

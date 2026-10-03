@@ -5,6 +5,7 @@ import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, Touc
 import { api } from '../../api/client';
 import type { Principle, PrincipleFolder, VaultStatus } from '../../api/types';
 import { Icon } from '../../components/Icon';
+import { QueryError } from '../../components/QueryError';
 import { colors, radius, spacing } from '../../theme';
 import type { MoreStackParamList } from '../../navigation/MoreStack';
 
@@ -74,6 +75,7 @@ export function PrinciplesScreen({ navigation }: Props) {
   }
 
   if (vault.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
+  if (vault.error) return <QueryError error={vault.error} onRetry={() => void vault.refetch()} />;
   if (!vault.data) return null;
 
   return (
@@ -98,6 +100,7 @@ export function PrinciplesScreen({ navigation }: Props) {
 
         <ScrollView contentContainerStyle={styles.content}>
           {principles.isLoading && <ActivityIndicator size="large" color={colors.accent} />}
+          {principles.error && <QueryError error={principles.error} onRetry={() => void principles.refetch()} />}
           {principles.isSuccess && (principles.data ?? []).filter((p) => sel === 'all' || p.folderId === sel).length === 0 && (
             <View style={styles.empty}>
               <Icon name="shield" size={28} color={colors.inkSoft} />
