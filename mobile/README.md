@@ -203,8 +203,10 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       (musculação: carga/repetições, já pré-preenchida pela meta; cardio: minutos/km,
       com a mesma lógica de "sessão única" x "várias séries" do app web), cronômetro
       isolado num componente próprio (não derruba a performance do resto da tela),
-      adicionar exercício durante o treino, finalizar, biblioteca de exercícios com
-      busca, **+ novo treino** (metas por exercício), **+ novo/editar/apagar exercício**
+      adicionar exercício durante o treino, biblioteca de exercícios com busca,
+      **+ novo treino** (metas por exercício), **+ novo/editar/apagar exercício** —
+      **finalizar treino** abre um popup com resumo (duração, séries, volume, recordes),
+      exercícios feitos, escolha de nível (mín./ideal/máx.) e observações, igual ao app web
 - [x] **Assistente**: chat com o mesmo assistente do app web (mesmas ferramentas, mesmas
       confirmações antes de gravar algo) — ver a nota sobre streaming acima; sempre
       reconsulta o estado da conversa ao final do turno, mesmo quando dá erro no meio
@@ -221,6 +223,10 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       - **Estudos**: notas (texto simples) e planos de estudo (aulas com check)
       - **Kanban**: quadros, colunas, cards (mover de coluna sem arrastar, pelo detalhe)
       - **Documentos**: notas, listas (checklist) e arquivos em pastas, com busca
+      - **Configurações**: Conta (dados, trocar senha, dispositivos conectados e
+        desconectar), Cofre & Perfil (criar/desbloquear/trocar/reiniciar o Cofre +
+        informações que a IA usa, nos 3 níveis de confidencialidade), Notificações (sino,
+        celular/push e WhatsApp, cada um com botão de teste)
 
 ## "Trocar de aba não carrega" — achada a causa real (não era navegação)
 
@@ -284,6 +290,16 @@ pra sempre sem dizer por quê.
      por IA, no formulário de Atividades
    - Agenda como grade visual (TimeGrid) em vez de lista — plausível, mas é um
      componente de calendário à parte, não só "mais uma tela"
+5. Dentro de Configurações, o que ainda não tem tela própria aqui (o app web tem 8 abas:
+   Agente, Assistente, Voz, Perfil, Notificações, Permissões, Segurança, Histórico — o
+   mobile portou só o essencial pra uso pessoal: Conta+Dispositivos+Senha, Cofre+Perfil,
+   Notificações):
+   - **Agente**: escolher provedor/modelo de IA, instruções permanentes, idioma/tom
+   - **Assistente**: quando o assistente pode tomar a iniciativa de sugerir algo
+   - **Voz**: configuração do ditado por voz (mobile ainda não tem ditado por voz)
+   - **Permissões**: o que o agente pode fazer sozinho, ferramenta por ferramenta
+   - **Histórico**: log de tudo que o agente tentou/fez
+   - Exportar meus dados / apagar dados financeiros / apagar tudo (LGPD)
 
 Cada módulo novo é: copiar os tipos relevantes pra `src/api/types.ts`, criar a(s)
 tela(s) em `src/screens/`, e adicionar ao `MoreStack` (ou ao `RootNavigator`, se for

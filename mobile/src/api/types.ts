@@ -184,3 +184,9 @@ export interface DocListItem {
   sizeBytes: number | null; createdAt: string; updatedAt: string; excerpt: string;
 }
 export interface Doc extends Omit<DocListItem, 'excerpt'> { content: string }
+
+// ---- Configurações (conta, cofre/perfil, notificações, dispositivos) ---------------------------
+export type ProfileLevel = 'general' | 'private' | 'secret';
+export interface ProfileItem { id: string; title: string; content: string | null; level: ProfileLevel; locked: boolean; updatedAt: string }
+export interface SessionInfo { id: string; userAgent: string; ip: string; createdAt: string; lastSeenAt: string; current: boolean }
+export interface NotificationChannels { whatsappTo: string; push: { configured: boolean; devices: number }; whatsapp: { configured: boolean } }

@@ -16,6 +16,7 @@ const ITEMS: { to: keyof MoreStackParamList; icon: IconName; label: string; hint
   { to: 'Study', icon: 'study', label: 'Estudos', hint: 'Notas e planos de estudo' },
   { to: 'Kanban', icon: 'kanban', label: 'Kanban', hint: 'Tarefas e projetos sem hora marcada' },
   { to: 'Documents', icon: 'folder', label: 'Documentos', hint: 'Notas, listas e arquivos em pastas' },
+  { to: 'Settings', icon: 'settings', label: 'Configurações', hint: 'Conta, Cofre & Perfil, notificações' },
 ];
 
 export function MoreMenuScreen({ navigation }: Props) {

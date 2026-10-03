@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { memo, useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { api } from '../../api/client';
 import type { GymActive, GymExercise, GymPlanItem } from '../../api/types';
 import { Icon } from '../../components/Icon';
@@ -165,7 +165,6 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
   const qc = useQueryClient();
   const active = useQuery({ queryKey: ['gym-active'], queryFn: () => api.get<GymActive | null>('/gym/sessions/active'), refetchInterval: false });
   const [extras, setExtras] = useState<GymExercise[]>([]);
-  const [finishing, setFinishing] = useState(false);
 
   if (active.isLoading) return <View style={styles.center}><ActivityIndicator size="large" color={colors.accent} /></View>;
   if (active.error) return <QueryError error={active.error} onRetry={() => void active.refetch()} />;
@@ -187,15 +186,6 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
 
   const onLogged = useCallback(() => { void qc.invalidateQueries({ queryKey: ['gym-active'] }); }, [qc]);
 
-  async function finish() {
-    setFinishing(true);
-    try {
-      await api.post(`/gym/sessions/${d.session.id}/finish`, {});
-      await qc.invalidateQueries({ queryKey: ['gym-active'] });
-      navigation.popToTop();
-    } finally { setFinishing(false); }
-  }
-
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
@@ -203,8 +193,8 @@ export function ActiveWorkoutScreen({ navigation }: Props) {
           <Text style={styles.topBarName}>{d.session.name}</Text>
           <ElapsedClock startedAt={d.session.startedAt} totalSets={d.totalSets} prs={d.prs} />
         </View>
-        <TouchableOpacity style={styles.finishBtn} disabled={finishing} onPress={() => Alert.alert('Finalizar treino?', undefined, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Finalizar', onPress: () => void finish() }])}>
-          {finishing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.finishBtnText}>Finalizar</Text>}
+        <TouchableOpacity style={styles.finishBtn} onPress={() => navigation.navigate('FinishWorkout', { active: d })}>
+          <Text style={styles.finishBtnText}>Finalizar</Text>
         </TouchableOpacity>
       </View>
 

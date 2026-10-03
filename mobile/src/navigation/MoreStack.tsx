@@ -1,6 +1,11 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { Activity, Board, Card, Commute, Principle, Reminder, StudyNoteView, StudyPlan } from '../api/types';
+import type { Activity, Board, Card, Commute, Principle, ProfileItem, Reminder, StudyNoteView, StudyPlan } from '../api/types';
 import { MoreMenuScreen } from '../screens/MoreMenuScreen';
+import { SettingsScreen } from '../screens/settings/SettingsScreen';
+import { AccountScreen } from '../screens/settings/AccountScreen';
+import { VaultProfileScreen } from '../screens/settings/VaultProfileScreen';
+import { NewProfileItemScreen } from '../screens/settings/NewProfileItemScreen';
+import { NotificationsSettingsScreen } from '../screens/settings/NotificationsSettingsScreen';
 import { AgendaScreen } from '../screens/agenda/AgendaScreen';
 import { ActivitiesScreen } from '../screens/activities/ActivitiesScreen';
 import { NewActivityScreen } from '../screens/activities/NewActivityScreen';
@@ -37,6 +42,11 @@ export type MoreStackParamList = {
   Study: undefined;
   NewStudyNote: { note?: StudyNoteView; folderId?: string | null } | undefined;
   StudyPlanDetail: { plan: StudyPlan };
+  Settings: undefined;
+  Account: undefined;
+  VaultProfile: undefined;
+  NewProfileItem: { item?: ProfileItem } | undefined;
+  NotificationsSettings: undefined;
 };
 const Stack = createNativeStackNavigator<MoreStackParamList>();
 
@@ -60,6 +70,11 @@ export function MoreStack() {
       <Stack.Screen name="Study" component={StudyScreen} options={{ title: 'Estudos' }} />
       <Stack.Screen name="NewStudyNote" component={NewStudyNoteScreen} options={({ route }) => ({ title: route.params?.note ? 'Editar nota' : 'Nova nota', presentation: 'modal' })} />
       <Stack.Screen name="StudyPlanDetail" component={StudyPlanDetailScreen} options={{ title: 'Plano de estudo' }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Configurações' }} />
+      <Stack.Screen name="Account" component={AccountScreen} options={{ title: 'Conta' }} />
+      <Stack.Screen name="VaultProfile" component={VaultProfileScreen} options={{ title: 'Cofre & Perfil' }} />
+      <Stack.Screen name="NewProfileItem" component={NewProfileItemScreen} options={({ route }) => ({ title: route.params?.item ? 'Editar informação' : 'Nova informação', presentation: 'modal' })} />
+      <Stack.Screen name="NotificationsSettings" component={NotificationsSettingsScreen} options={{ title: 'Notificações' }} />
     </Stack.Navigator>
   );
 }
