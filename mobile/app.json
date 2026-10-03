@@ -19,6 +19,7 @@
     },
     "android": {
       "package": "com.ninshiki.app",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#6a5cd6",
         "foregroundImage": "./assets/android-icon-foreground.png",
