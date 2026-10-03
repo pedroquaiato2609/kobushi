@@ -25,16 +25,12 @@ const TAB_LABEL: Record<keyof RootTabParamList, string> = { Financas: 'Finanças
 function AppTabs() {
   return (
     <Tab.Navigator
-      // detachInactiveScreens desligado: por padrão (true no Android) o bottom-tabs usa
-      // react-native-screens pra desmontar a aba inativa via Fragment nativo. Tem um bug
-      // conhecido e sem correção oficial (ver software-mansion/react-native-screens#4649)
-      // onde, só em build de release, esse Fragment não é removido direito e a tela trocada
-      // fica "congelada" na aba anterior mesmo com o ícone ativo já tendo mudado de cor —
-      // exatamente o sintoma relatado. Desligando, as 4 abas ficam montadas o tempo todo
-      // (como Views normais, sem passar pelo mecanismo nativo com bug), trocando de uma pra
-      // outra sem esse problema; o custo é manter o estado das 4 em memória o tempo todo,
-      // o que é um preço bem pequeno pra um app com só 4 abas.
-      detachInactiveScreens={false}
+      // NOTA: `detachInactiveScreens={false}` foi tentado aqui como correção pro bug de troca de
+      // aba (ver README) — revertido porque, testado num aparelho de verdade, deixou o app mais
+      // lento e outras abas pararam de carregar (manter todas as pilhas de navegação montadas o
+      // tempo todo pesa demais; aqui tem 5 abas, cada uma com várias telas, não é como os apps
+      // pequenos onde esse ajuste costuma ser indicado). Voltando pro padrão da biblioteca
+      // (detach ligado no Android) até achar a causa raiz de verdade.
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.accent,

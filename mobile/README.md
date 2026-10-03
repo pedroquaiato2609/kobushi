@@ -222,18 +222,27 @@ Ao terminar, a EAS dá um link pra baixar o `.apk` direto — manda esse link pr
       - **Kanban**: quadros, colunas, cards (mover de coluna sem arrastar, pelo detalhe)
       - **Documentos**: notas, listas (checklist) e arquivos em pastas, com busca
 
-## Bug corrigido: trocar de aba ficava "congelado" na tela anterior
+## Bug de navegação entre abas: ainda NÃO resolvido (histórico, pra não repetir a mesma tentativa)
 
-O ícone ativo mudava de cor (o `Tab.Navigator` atualizava o estado certinho), mas o
-conteúdo visível continuava sendo o da aba anterior. Isso é um bug conhecido do
-`react-native-screens` — só acontece em **build de release** (por isso nunca apareceu
-rodando `expo start`/Expo Go, só no APK de verdade), onde o Fragment nativo da aba antiga
-às vezes não é removido ao trocar de aba, deixando duas telas sobrepostas
-([software-mansion/react-native-screens#4649](https://github.com/software-mansion/react-native-screens/issues/4649),
-sem correção oficial da biblioteca). A correção foi desligar
-`detachInactiveScreens` no `Tab.Navigator` (`src/navigation/RootNavigator.tsx`) — isso
-tira as abas do mecanismo nativo com bug e mantém as 4 montadas como Views normais o
-tempo todo (custo pequeno de memória, nada perceptível com só 4 abas).
+Sintoma: trocar de aba às vezes não troca o conteúdo (ou trava, ou fica muito lento) —
+já apareceu tanto no preview web quanto num APK de verdade, em graus diferentes.
+
+**1ª tentativa** (nesta sessão): suspeitei de um bug conhecido do `react-native-screens`
+específico de build de release
+([software-mansion/react-native-screens#4649](https://github.com/software-mansion/react-native-screens/issues/4649))
+e tentei corrigir com `detachInactiveScreens={false}` no `Tab.Navigator`. **Piorou**: num
+aparelho de verdade, isso deixou várias abas sem carregar e o app geral mais lento — manter
+as 5 pilhas de navegação montadas o tempo todo (cada uma com várias telas) pesa demais;
+revertido pro padrão da biblioteca.
+
+**Hipótese ainda não testada**: pode ser um bug diferente, já corrigido oficialmente em
+`@react-navigation/bottom-tabs` (um padrão envolvendo `Animated` no driver nativo pra
+derivar o estado de "aba ativa", removido em julho de 2026) — mas a versão instalada aqui
+(`7.20.0`, a mais recente estável) já devia ter essa correção, então pode não ser a causa.
+Não decidi se é mesmo o mesmo bug relatado em
+[react-navigation/react-navigation#12755](https://github.com/react-navigation/react-navigation/issues/12755)
+ou outra coisa — próximo passo é investigar com mais calma (reproduzir de forma isolada,
+log de erro de verdade do aparelho) em vez de aplicar outra correção não verificada.
 
 ## Próximos passos
 
